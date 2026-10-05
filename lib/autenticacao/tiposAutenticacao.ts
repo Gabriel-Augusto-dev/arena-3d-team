@@ -13,13 +13,23 @@ export interface DadosNovaConta {
   turmaId: string | null;
 }
 
-/** Dados do perfil do aluno criados pelo professor (sem senha) */
-export type DadosPerfilAluno = Omit<Usuario, "id" | "criadoEm" | "atualizadoEm">;
+/** Perfil completo de uma conta criada pelo professor (aluno ou professor auxiliar) */
+export type DadosPerfilConta = Omit<Usuario, "id" | "criadoEm" | "atualizadoEm"> & {
+  perfil: "aluno" | "auxiliar";
+};
+
+export interface ResultadoNovaConta {
+  uid: string;
+  /** false = o e-mail não saiu (Brevo não configurado ou falhou) */
+  emailEnviado: boolean;
+  /** Link para a pessoa criar a senha — só vem quando o e-mail não saiu */
+  linkSenha: string | null;
+}
 
 /**
- * Contrato de autenticação. O sistema descobre se a pessoa é professor
- * ou aluno lendo o campo `perfil` do documento `usuarios/{uid}` —
- * ninguém escolhe o perfil na tela de login.
+ * Contrato de autenticação. O sistema descobre o perfil da pessoa
+ * (professor, auxiliar ou aluno) lendo o campo `perfil` do documento
+ * `usuarios/{uid}` — ninguém escolhe o perfil na tela de login.
  */
 export interface AdaptadorAutenticacao {
   /** Retorna o uid da conta autenticada */
@@ -28,12 +38,24 @@ export interface AdaptadorAutenticacao {
   /** Cadastro feito pelo próprio aluno. Cria a conta e o documento em `usuarios` */
   cadastrarAluno(dados: DadosNovaConta): Promise<string>;
 
-  /** Cadastro feito pelo professor, sem trocar a sessão dele */
-  criarContaPeloProfessor(perfil: DadosPerfilAluno, senhaInicial: string): Promise<string>;
+  /**
+   * Cadastro feito pelo professor (aluno ou professor auxiliar), pelo servidor.
+   * A pessoa recebe um e-mail para criar a própria senha.
+   */
+  criarContaPeloProfessor(perfil: DadosPerfilConta): Promise<ResultadoNovaConta>;
+
+  /** Professor reenvia o e-mail de acesso (link para criar/trocar a senha) */
+  reenviarAcesso(uid: string): Promise<ResultadoNovaConta>;
 
   sair(): Promise<void>;
 
   enviarRedefinicaoSenha(email: string): Promise<void>;
+
+  /** Confere o código do link de senha e devolve o e-mail da conta */
+  verificarCodigoSenha(codigo: string): Promise<string>;
+
+  /** Grava a senha nova a partir do código do link */
+  definirSenha(codigo: string, novaSenha: string): Promise<void>;
 
   /** Avisa sempre que a sessão muda. Recebe o uid ou null */
   observarSessao(aoMudar: (uid: string | null) => void): () => void;

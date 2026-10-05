@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { banco, type ChaveColecao, type Documento, type Filtro } from "@/lib/banco";
+import { banco, type ChaveColecao, type Documento, type Filtro, type OpcoesConsulta } from "@/lib/banco";
 
 interface EstadoColecao<T> {
   dados: T[];
@@ -13,8 +13,14 @@ interface EstadoColecao<T> {
  * Observa uma coleção em tempo real (onSnapshot no Firebase).
  * Passe `ativo = false` para não consultar ainda (ex.: esperando o uid).
  */
-export function useColecao<K extends ChaveColecao>(colecao: K, filtros: Filtro[] = [], ativo = true) {
+export function useColecao<K extends ChaveColecao>(
+  colecao: K,
+  filtros: Filtro[] = [],
+  ativo = true,
+  opcoes: OpcoesConsulta = {},
+) {
   const chaveFiltros = JSON.stringify(filtros);
+  const limite = opcoes.limite;
   const [estado, setEstado] = useState<EstadoColecao<Documento<K>> & { chave: string }>({
     dados: [],
     carregando: true,
@@ -24,17 +30,18 @@ export function useColecao<K extends ChaveColecao>(colecao: K, filtros: Filtro[]
 
   useEffect(() => {
     if (!ativo) return;
-    const chave = `${colecao}|${chaveFiltros}`;
+    const chave = `${colecao}|${chaveFiltros}|${limite ?? ""}`;
     return banco.observarColecao(
       colecao,
       JSON.parse(chaveFiltros) as Filtro[],
       (dados) => setEstado({ dados, carregando: false, erro: null, chave }),
       (erro) => setEstado((anterior) => ({ ...anterior, carregando: false, erro, chave })),
+      { limite },
     );
-  }, [colecao, chaveFiltros, ativo]);
+  }, [colecao, chaveFiltros, ativo, limite]);
 
   // Enquanto os filtros mudam, mostra carregando em vez de dados antigos
-  const atual = estado.chave === `${colecao}|${chaveFiltros}`;
+  const atual = estado.chave === `${colecao}|${chaveFiltros}|${limite ?? ""}`;
   return {
     dados: atual ? estado.dados : [],
     carregando: !ativo || !atual || estado.carregando,

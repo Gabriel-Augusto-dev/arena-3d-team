@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CalendarOff, CalendarPlus, Clock, MapPin, Pencil, Plus, Power, Trash, Users } from "lucide-react";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
+import { useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { useAbaDaUrl } from "@/ganchos/useAbaDaUrl";
 import { FaixaDatas } from "@/componentes/aulas/FaixaDatas";
@@ -14,7 +15,8 @@ import { Campo, CampoSelecao } from "@/componentes/interface/Campos";
 import { Folha } from "@/componentes/interface/Folha";
 import { Abas, EsqueletoLista, EstadoVazio, Selo, TituloPagina } from "@/componentes/interface/Elementos";
 import { adicionarDias, descreverDiasSemana, formatarDataExtenso, hojeISO } from "@/lib/utilitarios/datas";
-import { formatarMoeda } from "@/lib/utilitarios/formatadores";
+import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
+import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
 import { presencasDaAula, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { criarAulaExtra } from "@/servicos/servicoAulas";
 import { alternarTurmaAtiva, removerTurma } from "@/servicos/servicoTurmas";
@@ -25,6 +27,8 @@ type Visao = (typeof VISOES)[number];
 
 export default function TurmasProfessor() {
   const { turmas, carregando } = useDadosProfessor();
+  // Criar e editar turmas é só do administrador; o auxiliar só consulta
+  const { ehAdministrador } = useAutenticacao();
   const [visao, setVisao] = useAbaDaUrl<Visao>(VISOES, "turmas");
   const [turmaEditada, setTurmaEditada] = useState<Turma | "nova" | null>(null);
 
@@ -34,9 +38,11 @@ export default function TurmasProfessor() {
         titulo="Turmas"
         subtitulo={`${turmas.filter((t) => t.ativa).length} turmas ativas`}
         acao={
-          <Botao variante="destaque" icone={Plus} onClick={() => setTurmaEditada("nova")} className="max-sm:hidden">
-            Nova turma
-          </Botao>
+          ehAdministrador && (
+            <Botao variante="destaque" icone={Plus} onClick={() => setTurmaEditada("nova")} className="max-sm:hidden">
+              Nova turma
+            </Botao>
+          )
         }
       />
       <Abas<Visao>
@@ -51,15 +57,17 @@ export default function TurmasProfessor() {
 
       {carregando ? <EsqueletoLista /> : visao === "agenda" ? <Agenda /> : <ListaTurmas aoEditar={setTurmaEditada} />}
 
-      <button
-        onClick={() => setTurmaEditada("nova")}
-        aria-label="Nova turma"
-        className="fixed bottom-24 right-4 z-20 grid size-14 place-items-center rounded-2xl bg-laranja-500 text-marinho-950 shadow-lg shadow-marinho-900/25 sm:hidden"
-      >
-        <Plus className="size-6" />
-      </button>
+      {ehAdministrador && (
+        <button
+          onClick={() => setTurmaEditada("nova")}
+          aria-label="Nova turma"
+          className="fixed bottom-24 right-4 z-20 grid size-14 place-items-center rounded-2xl bg-laranja-500 text-marinho-950 shadow-lg shadow-marinho-900/25 sm:hidden"
+        >
+          <Plus className="size-6" />
+        </button>
+      )}
 
-      {turmaEditada && (
+      {turmaEditada && ehAdministrador && (
         <FolhaFormularioTurma
           turma={turmaEditada === "nova" ? undefined : turmaEditada}
           aoFechar={() => setTurmaEditada(null)}
@@ -70,7 +78,8 @@ export default function TurmasProfessor() {
 }
 
 function Agenda() {
-  const { aulas, turmaPorId, presencas, pagamentos } = useDadosProfessor();
+  const { aulas, turmaPorId, presencas, pagamentos, nomeResponsavel, restrito } = useDadosProfessor();
+  const { ehAdministrador } = useAutenticacao();
   const hoje = hojeISO();
   const [data, setData] = useState(hoje);
   const [aberta, setAberta] = useState<string | null>(null);
@@ -85,9 +94,11 @@ function Agenda() {
       <FaixaDatas selecionada={data} aoSelecionar={setData} inicio={adicionarDias(hoje, -7)} dias={29} marcadas={datasComAula} />
       <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-titulo text-xl font-bold">{formatarDataExtenso(data)}</h2>
-        <Botao variante="secundario" tamanho="pequeno" icone={CalendarPlus} onClick={() => setCriandoExtra(true)}>
-          Aula extra
-        </Botao>
+        {ehAdministrador && (
+          <Botao variante="secundario" tamanho="pequeno" icone={CalendarPlus} onClick={() => setCriandoExtra(true)}>
+            Aula extra
+          </Botao>
+        )}
       </div>
 
       {doDia.length ? (
@@ -99,13 +110,22 @@ function Agenda() {
                 turma={turmaPorId.get(aula.turmaId)}
                 presencas={presencasDaAula(aula, presencas)}
                 pagamentoPorId={pagamentoPorId}
+                responsavel={
+                  !restrito && responsavelDaAula(aula, turmaPorId)
+                    ? primeiroNome(nomeResponsavel(responsavelDaAula(aula, turmaPorId)))
+                    : undefined
+                }
                 aoAbrir={() => setAberta(aula.id)}
               />
             </li>
           ))}
         </ul>
       ) : (
-        <EstadoVazio icone={CalendarOff} titulo="Sem aulas neste dia" descricao="Escolha outro dia ou crie uma aula extra." />
+        <EstadoVazio
+          icone={CalendarOff}
+          titulo="Sem aulas neste dia"
+          descricao={ehAdministrador ? "Escolha outro dia ou crie uma aula extra." : "Escolha outro dia."}
+        />
       )}
 
       {aberta && <FolhaDetalheAula aulaId={aberta} aoFechar={() => setAberta(null)} />}
@@ -163,7 +183,8 @@ function FolhaAulaExtra({ dataInicial, aoFechar }: { dataInicial: string; aoFech
 }
 
 function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
-  const { turmas, alunos } = useDadosProfessor();
+  const { turmas, alunos, nomeResponsavel } = useDadosProfessor();
+  const { ehAdministrador } = useAutenticacao();
   const avisos = useAvisos();
 
   const executar = async (acao: () => Promise<unknown>, mensagem: string) => {
@@ -180,11 +201,13 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
       <EstadoVazio
         icone={Users}
         titulo="Nenhuma turma"
-        descricao="Crie a primeira turma para montar a agenda."
+        descricao={ehAdministrador ? "Crie a primeira turma para montar a agenda." : "O professor ainda não criou turmas."}
         acao={
-          <Botao icone={Plus} onClick={() => aoEditar("nova")}>
-            Nova turma
-          </Botao>
+          ehAdministrador && (
+            <Botao icone={Plus} onClick={() => aoEditar("nova")}>
+              Nova turma
+            </Botao>
+          )
         }
       />
     );
@@ -198,7 +221,10 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="font-titulo text-2xl font-bold leading-tight">{turma.nome}</p>
-                <p className="text-[13px] text-suave">{ROTULOS_NIVEL[turma.nivel]}</p>
+                <p className="text-[13px] text-suave">
+                  {ROTULOS_NIVEL[turma.nivel]}
+                  {turma.responsavelId && ehAdministrador ? ` · Prof. ${primeiroNome(nomeResponsavel(turma.responsavelId))}` : ""}
+                </p>
               </div>
               {turma.ativa ? <Selo tom="verde">Ativa</Selo> : <Selo tom="cinza">Inativa</Selo>}
             </div>
@@ -224,6 +250,7 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
                 <p className="numeros font-titulo text-xl font-bold">{formatarMoeda(turma.valorMensalidade)}</p>
               </div>
             </div>
+            {ehAdministrador && (
             <div className="mt-3 flex gap-2">
               <Botao variante="secundario" tamanho="pequeno" icone={Pencil} onClick={() => aoEditar(turma)}>
                 Editar
@@ -245,6 +272,7 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
                 aria-label={`Excluir turma ${turma.nome}`}
               />
             </div>
+            )}
           </li>
         );
       })}

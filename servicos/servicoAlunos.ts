@@ -1,4 +1,4 @@
-import { autenticacao, type DadosPerfilAluno } from "@/lib/autenticacao";
+import { autenticacao, type DadosPerfilConta, type ResultadoNovaConta } from "@/lib/autenticacao";
 import { banco } from "@/lib/banco";
 import type { Usuario } from "@/tipos";
 import { somenteNumeros } from "@/lib/utilitarios/formatadores";
@@ -30,11 +30,18 @@ function normalizar(dados: DadosAluno): DadosAluno {
   };
 }
 
-/** Professor cadastra um aluno (cria a conta de acesso com senha inicial) */
-export async function cadastrarAluno(dados: DadosAluno, senhaInicial: string): Promise<string> {
-  const perfil: DadosPerfilAluno = { ...normalizar(dados), perfil: "aluno" };
-  const uid = await autenticacao.criarContaPeloProfessor(perfil, senhaInicial);
-  return uid;
+/**
+ * Professor cadastra um aluno. A conta é criada pelo servidor e o aluno
+ * recebe um e-mail (Brevo) com o link para criar a própria senha.
+ */
+export async function cadastrarAluno(dados: DadosAluno): Promise<ResultadoNovaConta> {
+  const perfil: DadosPerfilConta = { ...normalizar(dados), perfil: "aluno" };
+  return autenticacao.criarContaPeloProfessor(perfil);
+}
+
+/** Manda de novo o e-mail com o link para criar/trocar a senha */
+export async function reenviarAcesso(uid: string): Promise<ResultadoNovaConta> {
+  return autenticacao.reenviarAcesso(uid);
 }
 
 export async function atualizarAluno(anterior: Usuario, dados: DadosAluno) {
@@ -45,8 +52,9 @@ export async function atualizarAluno(anterior: Usuario, dados: DadosAluno) {
   await banco.atualizar("usuarios", anterior.id, semEmail);
 }
 
-export async function alternarAlunoAtivo(aluno: Usuario) {
-  await banco.atualizar("usuarios", aluno.id, { ativo: !aluno.ativo });
+/** Ativa/desativa a conta (aluno ou professor auxiliar). Desativado não entra mais */
+export async function alternarAlunoAtivo(usuario: Usuario) {
+  await banco.atualizar("usuarios", usuario.id, { ativo: !usuario.ativo });
 }
 
 /** O próprio aluno edita seus dados básicos */

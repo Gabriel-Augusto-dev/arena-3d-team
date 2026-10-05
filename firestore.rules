@@ -1,7 +1,13 @@
 rules_version = '2';
 
 // Regras de segurança da 3D Team
-// Publique em: Console do Firebase → Firestore Database → Regras
+// Publique em: Console do Firebase → Firestore Database → Regras (copie e cole este arquivo)
+// ou pelo terminal: npx firebase-tools deploy --only firestore --project SEU_PROJETO
+//
+// Perfis (campo `perfil` do documento usuarios/{uid}):
+//   professor → administrador: pode tudo, é o único que confirma pagamentos
+//   auxiliar  → professor auxiliar: LÊ alunos, aulas, presenças e pagamentos; não altera nada
+//   aluno     → só os próprios dados
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -13,9 +19,24 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
-    // O perfil vem do documento usuarios/{uid}: ninguém escolhe ser professor
+    // O perfil vem do documento usuarios/{uid}: ninguém escolhe ser professor.
+    // Conta desativada (ativo = false) perde o acesso na hora.
     function ehProfessor() {
-      return logado() && usuarioAtual().perfil == 'professor';
+      return logado() && usuarioAtual().perfil == 'professor' && usuarioAtual().ativo == true;
+    }
+
+    // Professor ou professor auxiliar (leitura da área da equipe)
+    function ehEquipe() {
+      return logado() && usuarioAtual().perfil in ['professor', 'auxiliar'] && usuarioAtual().ativo == true;
+    }
+
+    // Aluno com a conta ativa (as gravações do aluno passam por aqui)
+    function ehAluno() {
+      return logado() && usuarioAtual().perfil == 'aluno' && usuarioAtual().ativo == true;
+    }
+
+    function caminho(colecao, id) {
+      return /databases/$(database)/documents/$(colecao)/$(id);
     }
 
     function ehDono(uid) {
@@ -28,26 +49,30 @@ service cloud.firestore {
 
     // ---------------- Usuários ----------------
     match /usuarios/{uid} {
-      allow read: if ehDono(uid) || ehProfessor();
+      allow read: if ehDono(uid) || ehEquipe();
 
       // Cadastro feito pelo próprio aluno: escolhe Day Use (avulso) ou mensalista com turma.
       // A mensalidade começa sem validade: só libera quando o professor confirmar o pagamento.
+      // Contas de auxiliar e alunos cadastrados pelo professor são criadas pelo servidor (Admin SDK).
       allow create: if ehProfessor() || (
         ehDono(uid)
         && request.resource.data.perfil == 'aluno'
+        && request.resource.data.ativo == true
         && (
           (request.resource.data.plano == 'avulso' && request.resource.data.turmaId == null)
           || (request.resource.data.plano == 'mensalista' && request.resource.data.turmaId is string)
         )
         && request.resource.data.validadeMensalidade == null
         && request.resource.data.usouExperimental == false
+        // a turma escolhida precisa existir e estar ativa
+        && (request.resource.data.turmaId == null || get(caminho('turmas', request.resource.data.turmaId)).data.ativa == true)
       );
 
       allow update: if ehProfessor()
-        // aluno edita os próprios dados básicos
+        // qualquer pessoa edita os próprios dados básicos
         || (ehDono(uid) && soAltera(['nome', 'whatsapp', 'dataNascimento', 'atualizadoEm']))
-        // agendar / desmarcar a aula experimental
-        || (ehDono(uid) && soAltera(['usouExperimental', 'atualizadoEm']));
+        // aluno agenda / desmarca a aula experimental
+        || (ehDono(uid) && ehAluno() && soAltera(['usouExperimental', 'atualizadoEm']));
 
       allow delete: if ehProfessor();
     }
@@ -71,22 +96,37 @@ service cloud.firestore {
 
     // ---------------- Presenças ----------------
     match /presencas/{id} {
-      // Aluno vê as próprias presenças; professor vê todas
-      allow read: if ehProfessor() || (logado() && resource.data.alunoId == request.auth.uid);
+      // Aluno vê as próprias presenças; professor e auxiliar veem todas
+      allow read: if ehEquipe()
+        || (logado() && (resource == null || resource.data.alunoId == request.auth.uid));
 
       // Aluno marca presença em nome dele. O tipo (mensalista / day_use / experimental)
       // é decidido no app; o bloqueio por Day Use em atraso também é conferido no app.
       allow create: if ehProfessor() || (
-        logado()
+        ehAluno()
         && request.resource.data.alunoId == request.auth.uid
         && request.resource.data.status == 'confirmada'
-        && request.resource.data.tipo in ['mensalista', 'day_use', 'experimental']
-        && (request.resource.data.tipo != 'mensalista' || usuarioAtual().plano == 'mensalista')
+        && (
+          // mensalista: sem custo
+          (request.resource.data.tipo == 'mensalista' && usuarioAtual().plano == 'mensalista'
+            && request.resource.data.pagamentoId == null)
+          // Day Use: a cobrança "a pagar" é gravada junto, no mesmo lote
+          || (request.resource.data.tipo == 'day_use'
+            && request.resource.data.pagamentoId is string
+            && getAfter(caminho('pagamentos', request.resource.data.pagamentoId)).data.alunoId == request.auth.uid
+            && getAfter(caminho('pagamentos', request.resource.data.pagamentoId)).data.status == 'pendente'
+            && getAfter(caminho('pagamentos', request.resource.data.pagamentoId)).data.presencaId == id)
+          // experimental: só uma vez (marca usouExperimental = true no mesmo lote)
+          || (request.resource.data.tipo == 'experimental'
+            && usuarioAtual().usouExperimental == false
+            && getAfter(caminho('usuarios', request.auth.uid)).data.usouExperimental == true)
+        )
       );
 
       // Aluno só pode desmarcar a própria presença
       allow update: if ehProfessor() || (
-        resource.data.alunoId == request.auth.uid
+        ehAluno()
+        && resource.data.alunoId == request.auth.uid
         && request.resource.data.status == 'cancelada'
         && soAltera(['status', 'atualizadoEm'])
       );
@@ -96,26 +136,45 @@ service cloud.firestore {
 
     // ---------------- Pagamentos ----------------
     match /pagamentos/{id} {
-      allow read: if ehProfessor() || (logado() && resource.data.alunoId == request.auth.uid);
+      // Professor e auxiliar veem se cada aluno pagou; o aluno vê os dele
+      allow read: if ehEquipe()
+        || (logado() && (resource == null || resource.data.alunoId == request.auth.uid));
 
       // Aluno cria cobrança de Day Use (pendente) ou avisa mensalidade paga (em_analise).
-      // Confirmar é exclusivo do professor.
+      // Confirmar é exclusivo do professor administrador.
       allow create: if ehProfessor() || (
-        logado()
+        ehAluno()
         && request.resource.data.alunoId == request.auth.uid
-        && request.resource.data.status in ['pendente', 'em_analise']
         && request.resource.data.confirmadoPor == null
+        && request.resource.data.confirmadoEm == null
+        && (
+          // Day Use: valor definido nos Ajustes, ligado à presença gravada no mesmo lote
+          (request.resource.data.tipo == 'day_use'
+            && request.resource.data.status == 'pendente'
+            && request.resource.data.valor == get(caminho('configuracoes', 'geral')).data.valorDayUse
+            && request.resource.data.presencaId is string
+            && getAfter(caminho('presencas', request.resource.data.presencaId)).data.alunoId == request.auth.uid
+            && getAfter(caminho('presencas', request.resource.data.presencaId)).data.pagamentoId == id)
+          // Mensalidade avisada pelo aluno: valor da própria turma, vai para conferência
+          || (request.resource.data.tipo == 'mensalidade'
+            && request.resource.data.status == 'em_analise'
+            && request.resource.data.turmaId == usuarioAtual().turmaId
+            && request.resource.data.valor == get(caminho('turmas', request.resource.data.turmaId)).data.valorMensalidade)
+        )
       );
 
       // Aluno: avisar que pagou (pendente → em_analise) ou cancelar ao desmarcar presença
       allow update: if ehProfessor() || (
-        resource.data.alunoId == request.auth.uid
+        ehAluno()
+        && resource.data.alunoId == request.auth.uid
         && resource.data.status == 'pendente'
         && (
           (request.resource.data.status == 'em_analise'
             && soAltera(['status', 'informadoEm', 'observacaoAluno', 'motivoRecusa', 'atualizadoEm']))
+          // só junto com a presença desmarcada (mesmo lote)
           || (request.resource.data.status == 'cancelado'
-            && soAltera(['status', 'motivoRecusa', 'atualizadoEm']))
+            && soAltera(['status', 'motivoRecusa', 'atualizadoEm'])
+            && getAfter(caminho('presencas', resource.data.presencaId)).data.status == 'cancelada')
         )
       );
 
@@ -131,12 +190,14 @@ service cloud.firestore {
 
       allow read: if destinatario();
 
-      // Aluno cria avisos para os professores (ou para si mesmo); professor para qualquer um
+      // Aluno só cria avisos para o professor (PIX avisado, experimental, cadastro novo),
+      // sempre com link interno do app; o professor avisa qualquer um
       allow create: if ehProfessor() || (
-        logado() && (
-          request.resource.data.paraPerfil == 'professor'
-          || request.resource.data.usuarioId == request.auth.uid
-        )
+        ehAluno()
+        && request.resource.data.paraPerfil == 'professor'
+        && request.resource.data.usuarioId == null
+        && request.resource.data.lida == false
+        && (request.resource.data.link == null || request.resource.data.link.matches('^/(professor|aluno)(/[A-Za-z0-9_/-]*)?$'))
       );
 
       allow update: if destinatario() && soAltera(['lida', 'atualizadoEm']);

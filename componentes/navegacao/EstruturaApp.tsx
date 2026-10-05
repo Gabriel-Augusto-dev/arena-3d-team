@@ -20,7 +20,8 @@ export interface ItemNavegacao {
 }
 
 function estaAtivo(caminho: string, href: string, raiz: string) {
-  return href === raiz ? caminho === raiz : caminho.startsWith(href);
+  const base = href.split("?")[0];
+  return base === raiz ? caminho === raiz : caminho.startsWith(base);
 }
 
 /**

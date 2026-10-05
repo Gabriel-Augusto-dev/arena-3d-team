@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Search, UserPlus, UserRoundSearch } from "lucide-react";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
+import { useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { FolhaFormularioAluno } from "@/componentes/professor/FolhaFormularioAluno";
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
@@ -17,6 +18,8 @@ type Filtro = "todos" | "mensalistas" | "avulsos" | "em_dia" | "atrasados" | "in
 
 export default function AlunosProfessor() {
   const { alunos, turmas, turmaPorId, carregando } = useDadosProfessor();
+  // Cadastrar aluno é só do administrador
+  const { ehAdministrador } = useAutenticacao();
   const [busca, setBusca] = useState("");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [turmaFiltro, setTurmaFiltro] = useState("");
@@ -57,9 +60,11 @@ export default function AlunosProfessor() {
         titulo="Alunos"
         subtitulo={`${contar("todos")} ativos, ${contar("mensalistas")} mensalistas`}
         acao={
-          <Botao icone={UserPlus} variante="destaque" onClick={() => setNovo(true)} className="max-sm:hidden">
-            Novo aluno
-          </Botao>
+          ehAdministrador && (
+            <Botao icone={UserPlus} variante="destaque" onClick={() => setNovo(true)} className="max-sm:hidden">
+              Novo aluno
+            </Botao>
+          )
         }
       />
 
@@ -141,9 +146,12 @@ export default function AlunosProfessor() {
           <EstadoVazio
             icone={UserRoundSearch}
             titulo="Nenhum aluno encontrado"
-            descricao={busca ? "Confira a busca ou troque o filtro." : "Cadastre o primeiro aluno da arena."}
+            descricao={
+              busca || !ehAdministrador ? "Confira a busca ou troque o filtro." : "Cadastre o primeiro aluno da arena."
+            }
             acao={
-              !busca && (
+              !busca &&
+              ehAdministrador && (
                 <Botao icone={UserPlus} onClick={() => setNovo(true)}>
                   Novo aluno
                 </Botao>
@@ -154,15 +162,17 @@ export default function AlunosProfessor() {
       </div>
 
       {/* Botão flutuante no celular */}
-      <button
-        onClick={() => setNovo(true)}
-        aria-label="Novo aluno"
-        className="fixed bottom-24 right-4 z-20 grid size-14 place-items-center rounded-2xl bg-laranja-500 text-marinho-950 shadow-lg shadow-marinho-900/25 sm:hidden"
-      >
-        <UserPlus className="size-6" />
-      </button>
+      {ehAdministrador && (
+        <button
+          onClick={() => setNovo(true)}
+          aria-label="Novo aluno"
+          className="fixed bottom-24 right-4 z-20 grid size-14 place-items-center rounded-2xl bg-laranja-500 text-marinho-950 shadow-lg shadow-marinho-900/25 sm:hidden"
+        >
+          <UserPlus className="size-6" />
+        </button>
+      )}
 
-      {novo && <FolhaFormularioAluno aoFechar={() => setNovo(false)} />}
+      {novo && ehAdministrador && <FolhaFormularioAluno aoFechar={() => setNovo(false)} />}
     </>
   );
 }

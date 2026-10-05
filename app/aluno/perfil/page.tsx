@@ -10,8 +10,6 @@ import { Avatar, Cartao, LinhaInfo, Selo, TituloPagina, TituloSecao } from "@/co
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
 import { Folha } from "@/componentes/interface/Folha";
-import { firebaseAtivo } from "@/lib/firebase/configuracao";
-import { BotaoRestaurarDemonstracao } from "@/componentes/navegacao/BotaoRestaurarDemonstracao";
 import { descreverDiasSemana, formatarData, hojeISO } from "@/lib/utilitarios/datas";
 import { calcularIdade, formatarCpf, formatarMoeda, formatarTelefone, linkWhatsapp } from "@/lib/utilitarios/formatadores";
 import { validarTelefone } from "@/lib/utilitarios/validacoes";
@@ -100,7 +98,7 @@ export default function PerfilAluno() {
           <div className="flex flex-col gap-2">
             {configuracoes.whatsappContato && (
               <a
-                href={linkWhatsapp(configuracoes.whatsappContato, `Olá! Sou ${aluno.nome}, aluno(a) da 3D Team.`)}
+                href={linkWhatsapp(configuracoes.whatsappContato, `Olá! Sou ${aluno.nome}, aluno(a) da ${configuracoes.nomeArena}.`)}
                 target="_blank"
                 rel="noreferrer"
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-white font-semibold ring-1 ring-linha hover:bg-marinho-50"
@@ -112,7 +110,6 @@ export default function PerfilAluno() {
             <Botao variante="perigo" tamanho="grande" icone={LogOut} larguraTotal onClick={encerrar}>
               Sair da conta
             </Botao>
-            {!firebaseAtivo && <BotaoRestaurarDemonstracao />}
           </div>
         </div>
       </div>

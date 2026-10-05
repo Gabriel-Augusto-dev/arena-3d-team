@@ -101,7 +101,7 @@ export default function PagamentosAluno() {
 
         <section>
           <TituloSecao
-            titulo="Histórico"
+            titulo="Histórico · últimos 12 meses"
             acao={
               verHistorico && (
                 <Botao variante="fantasma" tamanho="pequeno" onClick={() => setVerHistorico(false)}>

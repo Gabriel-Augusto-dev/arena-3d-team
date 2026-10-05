@@ -8,50 +8,35 @@ import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Botao } from "@/componentes/interface/Botao";
 import { formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
-import { linkPresencaDaAula } from "@/servicos/regras/regrasAula";
-
-/** Copia texto para a área de transferência (com plano B para navegadores antigos) */
-async function copiarTexto(texto: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(texto);
-    return true;
-  } catch {
-    try {
-      const campo = document.createElement("textarea");
-      campo.value = texto;
-      campo.setAttribute("readonly", "");
-      campo.style.position = "fixed";
-      campo.style.opacity = "0";
-      document.body.appendChild(campo);
-      campo.select();
-      const ok = document.execCommand("copy");
-      document.body.removeChild(campo);
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
+import { copiarTexto } from "@/lib/utilitarios/areaTransferencia";
+import { ehDiaExtra, linkPresencaDaAula } from "@/servicos/regras/regrasAula";
 
 /** Mensagem pronta para o WhatsApp, com o link da lista de presença */
-export function mensagemDiaExtra(aula: Aula, valorDiaria: number) {
-  return (
-    `Dia extra de treino! ${formatarDataExtenso(aula.data)}, das ${aula.horarioInicio} às ${aula.horarioFim}.\n` +
-    `Diária: ${formatarMoeda(valorDiaria)} (para todos, inclusive mensalistas).\n` +
-    `Marque sua presença: ${linkPresencaDaAula(aula.id)}`
-  );
+export function mensagemPresenca(aula: Aula, nomeTurma: string, valorDiaria: number) {
+  const quando = `${formatarDataExtenso(aula.data)}, das ${aula.horarioInicio} às ${aula.horarioFim}`;
+  const link = `Marque sua presença: ${linkPresencaDaAula(aula.id)}`;
+  if (ehDiaExtra(aula)) {
+    return (
+      `Dia extra de treino! ${quando}.\n` +
+      `Diária: ${formatarMoeda(valorDiaria)} (para todos, inclusive mensalistas).\n` +
+      link
+    );
+  }
+  return `Aula ${nomeTurma}: ${quando}.\n${link}`;
 }
 
 /**
- * Link que leva o aluno direto para marcar presença no dia extra.
+ * Link que leva o aluno direto para marcar presença na aula (normal ou dia extra).
  * O professor copia e envia no WhatsApp para quem quiser.
  */
 export function CompartilharLinkAula({ aula, compacto = false }: { aula: Aula; compacto?: boolean }) {
-  const { configuracoes } = useDadosProfessor();
+  const { configuracoes, turmaPorId } = useDadosProfessor();
   const avisos = useAvisos();
   const [copiado, setCopiado] = useState(false);
   const link = linkPresencaDaAula(aula.id);
-  const whatsapp = `https://wa.me/?text=${encodeURIComponent(mensagemDiaExtra(aula, configuracoes.valorDayUse))}`;
+  const whatsapp = `https://wa.me/?text=${encodeURIComponent(
+    mensagemPresenca(aula, turmaPorId.get(aula.turmaId)?.nome ?? "", configuracoes.valorDayUse),
+  )}`;
 
   const copiar = async () => {
     if (await copiarTexto(link)) {

@@ -1,6 +1,16 @@
 import { banco, type OperacaoLote } from "@/lib/banco";
 import type { Notificacao, TipoNotificacao, Turma, Usuario } from "@/tipos";
 
+/**
+ * Id que já vem em ordem do mais novo para o mais antigo. Assim o sino
+ * busca só as últimas notificações (limite) sem precisar de índice composto:
+ * o Firestore devolve os documentos na ordem do id.
+ */
+export function idNotificacao(): string {
+  const inverso = String(9_999_999_999_999 - Date.now()).padStart(13, "0");
+  return `${inverso}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
 interface DadosNotificacao {
   tipo: TipoNotificacao;
   titulo: string;
@@ -19,7 +29,7 @@ export function operacaoNotificarAluno(alunoId: string, dados: DadosNotificacao)
     link: dados.link ?? null,
     lida: false,
   };
-  return { tipo: "definir", colecao: "notificacoes", id: banco.novoId("notificacoes"), dados: notificacao };
+  return { tipo: "definir", colecao: "notificacoes", id: idNotificacao(), dados: notificacao };
 }
 
 export function operacaoNotificarProfessores(dados: DadosNotificacao): OperacaoLote {
@@ -32,7 +42,7 @@ export function operacaoNotificarProfessores(dados: DadosNotificacao): OperacaoL
     link: dados.link ?? null,
     lida: false,
   };
-  return { tipo: "definir", colecao: "notificacoes", id: banco.novoId("notificacoes"), dados: notificacao };
+  return { tipo: "definir", colecao: "notificacoes", id: idNotificacao(), dados: notificacao };
 }
 
 export async function marcarComoLida(id: string) {

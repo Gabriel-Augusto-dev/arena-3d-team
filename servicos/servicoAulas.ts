@@ -16,6 +16,7 @@ function montarAula(turma: Turma, data: string): Omit<Aula, "id" | "criadoEm" | 
     horarioFim: turma.horarioFim,
     status: "agendada",
     motivoCancelamento: "",
+    responsavelId: turma.responsavelId ?? null,
   };
 }
 
@@ -62,7 +63,12 @@ export async function criarAulaExtra(turma: Turma, data: string) {
  * Todos que marcarem presença pagam diária (inclusive mensalistas).
  * Retorna o id da aula, para o professor copiar o link de presença.
  */
-export async function criarDiaExtra(data: string, horarioInicio: string, horarioFim: string): Promise<string> {
+export async function criarDiaExtra(
+  data: string,
+  horarioInicio: string,
+  horarioFim: string,
+  responsavelId: string | null = null,
+): Promise<string> {
   if (!data) throw new Error("Escolha o dia");
   if (data < hojeISO()) throw new Error("Escolha hoje ou um dia futuro");
   if (!horarioInicio || !horarioFim) throw new Error("Informe o horário");
@@ -77,6 +83,7 @@ export async function criarDiaExtra(data: string, horarioInicio: string, horario
     horarioFim,
     status: "agendada",
     motivoCancelamento: "",
+    responsavelId,
   });
   return id;
 }

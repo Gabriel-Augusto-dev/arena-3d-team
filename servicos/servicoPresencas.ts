@@ -16,8 +16,9 @@ type NovaPresenca = Omit<Presenca, "id" | "criadoEm" | "atualizadoEm">;
 async function conferir(aluno: Usuario, aula: Aula) {
   const [aulaAtual, presencas, pagamentos, config, alunoAtual] = await Promise.all([
     banco.obter("aulas", aula.id),
-    banco.listar("presencas", [onde("alunoId", "==", aluno.id)]),
-    banco.listar("pagamentos", [onde("alunoId", "==", aluno.id)]),
+    // Só o que decide a presença: as presenças do aluno no dia da aula e as cobranças em aberto
+    banco.listar("presencas", [onde("alunoId", "==", aluno.id), onde("dataAula", "==", aula.data)]),
+    banco.listar("pagamentos", [onde("alunoId", "==", aluno.id), onde("status", "in", ["pendente", "em_analise"])]),
     obterConfiguracoes(),
     banco.obter("usuarios", aluno.id),
   ]);
@@ -59,7 +60,10 @@ export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<{ paga
   const presencaId = banco.novoId("presencas");
 
   if (situacao.tipo === "livre_mensalista") {
-    await banco.definir("presencas", presencaId, montarPresenca(aluno, aula, "mensalista", null));
+    // Em lote (sem ler antes): o documento é novo e o aluno não pode ler presenças de outros
+    await banco.lote([
+      { tipo: "definir", colecao: "presencas", id: presencaId, dados: montarPresenca(aluno, aula, "mensalista", null) },
+    ]);
     return { pagamentoId: null };
   }
 

@@ -1,8 +1,8 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from "firebase/app";
 
 /**
- * Configuração do Firebase lida do arquivo .env.local
- * (copie .env.exemplo para .env.local e preencha com os dados do console).
+ * Configuração do Firebase lida das variáveis de ambiente
+ * (.env.local no computador; Settings → Environment Variables no Vercel).
  *
  * As variáveis precisam ser escritas por extenso (process.env.NOME) para o
  * Next.js conseguir embuti-las no código do navegador.
@@ -16,24 +16,16 @@ export const configuracaoFirebase = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-/** false = modo demonstração (dados no navegador); true = Firebase */
-export const firebaseAtivo = process.env.NEXT_PUBLIC_USAR_FIREBASE === "true";
+/** Só para desenvolvimento: usa os emuladores locais do Firebase */
+export const usarEmuladores = process.env.NEXT_PUBLIC_FIREBASE_EMULADOR === "true";
+
+export const firebaseConfigurado = !!configuracaoFirebase.apiKey && !!configuracaoFirebase.projectId;
 
 export function obterAppFirebase(): FirebaseApp {
-  if (!configuracaoFirebase.apiKey || !configuracaoFirebase.projectId) {
+  if (!firebaseConfigurado) {
     throw new Error(
-      "Firebase ativado, mas a configuração está incompleta. Confira o arquivo .env.local",
+      "Firebase não configurado. Preencha as variáveis NEXT_PUBLIC_FIREBASE_* (veja env.exemplo)",
     );
   }
   return getApps().length ? getApp() : initializeApp(configuracaoFirebase);
-}
-
-/**
- * App secundário usado pelo professor para criar contas de alunos sem
- * perder a própria sessão (createUserWithEmailAndPassword faz login
- * automático na instância em que é chamado).
- */
-export function obterAppFirebaseSecundario(): FirebaseApp {
-  const nome = "secundario";
-  return getApps().find((app) => app.name === nome) ?? initializeApp(configuracaoFirebase, nome);
 }

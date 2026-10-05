@@ -1,4 +1,5 @@
 import { removerAcentos } from "./formatadores";
+import { validarCpf } from "./validacoes";
 
 /**
  * Gera o código PIX "copia e cola" (BR Code estático, padrão EMV do Banco
@@ -39,10 +40,34 @@ function calcularCrc16(texto: string): string {
   return crc.toString(16).toUpperCase().padStart(4, "0");
 }
 
+/**
+ * Deixa a chave PIX no formato que os bancos aceitam no QR Code:
+ *  - CPF / CNPJ  → só números
+ *  - telefone    → +55 + DDD + número
+ *  - e-mail      → minúsculas
+ *  - aleatória   → como está (minúsculas, com os hífens)
+ */
+export function normalizarChavePix(chave: string): string {
+  const texto = chave.trim();
+  if (!texto) return "";
+  if (texto.includes("@")) return texto.toLowerCase();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(texto)) return texto.toLowerCase();
+
+  const numeros = texto.replace(/\D/g, "");
+  const pareceTelefone = texto.startsWith("+") || /[()]/.test(texto);
+  if (!pareceTelefone) {
+    if (numeros.length === 14) return numeros; // CNPJ
+    if (numeros.length === 11 && validarCpf(numeros)) return numeros; // CPF
+  }
+  if (numeros.length === 10 || numeros.length === 11) return `+55${numeros}`; // DDD + número
+  if ((numeros.length === 12 || numeros.length === 13) && numeros.startsWith("55")) return `+${numeros}`;
+  return texto;
+}
+
 export function gerarCodigoPix(dados: DadosPix): string {
   const contaPix =
     campo("00", "br.gov.bcb.pix") +
-    campo("01", dados.chave.trim()) +
+    campo("01", normalizarChavePix(dados.chave)) +
     (dados.descricao ? campo("02", limparTexto(dados.descricao, 40)) : "");
 
   const identificador = (dados.identificador || "***").replace(/[^A-Za-z0-9*]/g, "").slice(0, 25) || "***";

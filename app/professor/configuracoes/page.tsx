@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { ChevronRight, LogOut, UsersRound } from "lucide-react";
 import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
@@ -10,9 +10,9 @@ import { Avatar, Carregando, Cartao, TituloPagina, TituloSecao } from "@/compone
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
 import { PainelPix } from "@/componentes/pagamentos/PainelPix";
-import { BotaoRestaurarDemonstracao } from "@/componentes/navegacao/BotaoRestaurarDemonstracao";
-import { firebaseAtivo } from "@/lib/firebase/configuracao";
+import Link from "next/link";
 import { formatarTelefone, somenteNumeros } from "@/lib/utilitarios/formatadores";
+import { normalizarChavePix } from "@/lib/utilitarios/pix";
 import { salvarConfiguracoes } from "@/servicos/servicoConfiguracoes";
 import type { Configuracoes } from "@/tipos";
 
@@ -46,7 +46,9 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
     if (dados.diasCicloMensalidade < 1) return avisos.erro("O ciclo precisa ter pelo menos 1 dia");
     setSalvando(true);
     try {
-      await salvarConfiguracoes({ ...dados, whatsappContato: somenteNumeros(dados.whatsappContato) });
+      const chavePix = normalizarChavePix(dados.chavePix);
+      setDados((d) => ({ ...d, chavePix }));
+      await salvarConfiguracoes({ ...dados, chavePix, whatsappContato: somenteNumeros(dados.whatsappContato) });
       avisos.sucesso("Configurações salvas");
     } catch (erro) {
       avisos.erro(erro);
@@ -57,7 +59,7 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
 
   return (
     <>
-      <TituloPagina titulo="Ajustes" subtitulo="PIX, valores e dados da arena" />
+      <TituloPagina titulo="Ajustes" subtitulo="PIX, valores, equipe e dados da arena" />
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
         <div className="flex flex-col gap-6">
@@ -69,7 +71,7 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
                 placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
                 value={dados.chavePix}
                 onChange={(e) => alterar("chavePix", e.target.value)}
-                dica="Telefone no formato +5511999999999"
+                dica="Pode digitar com pontos e traços: ao salvar, o app ajusta o formato (CPF/CNPJ só números, telefone com +55)"
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <Campo
@@ -126,7 +128,7 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
                 onChange={(e) => alterar("whatsappContato", e.target.value)}
                 dica="Botão “Falar com o professor” dos alunos"
               />
-<Campo
+              <Campo
                 className="sm:col-span-2"
                 rotulo="Nome da equipe"
                 value={dados.nomeArena}
@@ -138,6 +140,23 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
           <Botao tamanho="grande" larguraTotal carregando={salvando} onClick={salvar}>
             Salvar ajustes
           </Botao>
+
+          <section>
+            <TituloSecao titulo="Equipe" />
+            <Link
+              href="/professor/equipe"
+              className="flex items-center gap-3 rounded-3xl bg-white p-4 ring-1 ring-linha/70 transition hover:ring-marinho-200"
+            >
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-marinho-100 text-marinho-700">
+                <UsersRound className="size-5" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold">Professores auxiliares</span>
+                <span className="block text-sm text-suave">Cadastro, aulas de cada um e cálculo do repasse</span>
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-suave" />
+            </Link>
+          </section>
         </div>
 
         <aside className="flex flex-col gap-6">
@@ -146,7 +165,7 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
             <PainelPix
               configuracoes={{ ...configuracoes, ...dados }}
               valor={dados.valorDayUse}
-              identificador="TESTE"
+              identificador="PREVIA"
               descricao="Day Use"
               mostrarPassos={false}
             />
@@ -170,7 +189,6 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
               Sair
             </Botao>
           </Cartao>
-          {!firebaseAtivo && <BotaoRestaurarDemonstracao />}
         </aside>
       </div>
     </>

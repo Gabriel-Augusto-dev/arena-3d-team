@@ -11,8 +11,10 @@ import { descreverDiasSemana, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarCpf, formatarMoeda, formatarTelefone } from "@/lib/utilitarios/formatadores";
 import { validarDadosPessoais, type ErrosFormulario } from "@/lib/utilitarios/validacoes";
 import { atualizarAluno, cadastrarAluno, type DadosAluno } from "@/servicos/servicoAlunos";
+import type { ResultadoNovaConta } from "@/lib/autenticacao";
+import { FolhaAcessoEnviado } from "./FolhaAcessoEnviado";
 
-type Formulario = DadosAluno & { senhaInicial: string };
+type Formulario = DadosAluno;
 
 /** Cadastro e edição de aluno pelo professor (turma, plano, mensalidade) */
 export function FolhaFormularioAluno({
@@ -41,8 +43,8 @@ export function FolhaFormularioAluno({
     usouExperimental: aluno?.usouExperimental ?? false,
     ativo: aluno?.ativo ?? true,
     observacoes: aluno?.observacoes ?? "",
-    senhaInicial: "",
   });
+  const [criado, setCriado] = useState<ResultadoNovaConta | null>(null);
 
   const alterar = <C extends keyof Formulario>(campo: C, valor: Formulario[C]) => {
     setDados((d) => ({ ...d, [campo]: valor }));
@@ -54,28 +56,31 @@ export function FolhaFormularioAluno({
   const salvar = async () => {
     const novosErros: ErrosFormulario<Formulario> = validarDadosPessoais(dados);
     if (dados.plano === "mensalista" && !dados.turmaId) novosErros.turmaId = "Escolha a turma";
-    if (!editando && dados.senhaInicial.length < 6) novosErros.senhaInicial = "Mínimo de 6 caracteres";
     setErros(novosErros);
     if (Object.keys(novosErros).length) return;
 
     setSalvando(true);
     try {
-      const { senhaInicial, ...dadosAluno } = dados;
       if (editando) {
-        await atualizarAluno(aluno, dadosAluno);
+        await atualizarAluno(aluno, dados);
         avisos.sucesso("Aluno atualizado");
         aoSalvar?.(aluno.id);
+        aoFechar();
       } else {
-        const id = await cadastrarAluno(dadosAluno, senhaInicial);
-        avisos.sucesso(`${dados.nome.split(" ")[0]} cadastrado. Envie o e-mail e a senha para o aluno`);
-        aoSalvar?.(id);
+        const resultado = await cadastrarAluno(dados);
+        aoSalvar?.(resultado.uid);
+        // Mostra se o e-mail de acesso saiu (ou o link para mandar no WhatsApp)
+        setCriado(resultado);
       }
-      aoFechar();
     } catch (erro) {
       avisos.erro(erro);
       setSalvando(false);
     }
   };
+
+  if (criado) {
+    return <FolhaAcessoEnviado nome={dados.nome} email={dados.email.trim().toLowerCase()} resultado={criado} aoFechar={aoFechar} />;
+  }
 
   return (
     <Folha
@@ -83,7 +88,7 @@ export function FolhaFormularioAluno({
       larga
       aoFechar={aoFechar}
       titulo={editando ? "Editar aluno" : "Novo aluno"}
-      descricao={editando ? aluno.email : "O aluno entra com este e-mail e a senha inicial."}
+      descricao={editando ? aluno.email : "O aluno recebe um e-mail para criar a senha e já pode entrar."}
       rodape={
         <Botao tamanho="grande" larguraTotal carregando={salvando} onClick={salvar}>
           {editando ? "Salvar alterações" : "Cadastrar aluno"}
@@ -109,15 +114,6 @@ export function FolhaFormularioAluno({
             disabled={editando}
             dica={editando ? "O e-mail de login não pode ser alterado aqui" : undefined}
           />
-          {!editando && (
-            <Campo
-              rotulo="Senha inicial"
-              value={dados.senhaInicial}
-              onChange={(e) => alterar("senhaInicial", e.target.value)}
-              erro={erros.senhaInicial}
-              dica="O aluno pode trocar depois"
-            />
-          )}
           <Campo
             rotulo="CPF"
             inputMode="numeric"

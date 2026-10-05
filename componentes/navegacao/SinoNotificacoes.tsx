@@ -30,17 +30,22 @@ const icones: Record<TipoNotificacao, { icone: LucideIcon; cor: string }> = {
   aviso: { icone: Bell, cor: "bg-marinho-100 text-marinho-700" },
 };
 
+const LIMITE_NOTIFICACOES = 30;
+
 export function SinoNotificacoes({ claro = false }: { claro?: boolean }) {
   const usuario = useUsuarioLogado();
   const router = useRouter();
   const [aberta, setAberta] = useState(false);
 
+  // O administrador recebe os avisos da arena (PIX, cadastros, experimentais);
+  // aluno e professor auxiliar recebem só os avisos enviados para eles
   const filtro =
     usuario.perfil === "professor" ? [onde("paraPerfil", "==", "professor")] : [onde("usuarioId", "==", usuario.id)];
-  const { dados } = useColecao("notificacoes", filtro);
+  // Só as últimas (o id já vem do mais novo para o mais antigo): não relê o histórico inteiro
+  const { dados } = useColecao("notificacoes", filtro, true, { limite: LIMITE_NOTIFICACOES });
 
   const notificacoes = useMemo(
-    () => [...dados].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)).slice(0, 40),
+    () => [...dados].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)),
     [dados],
   );
   const naoLidas = notificacoes.filter((n) => !n.lida).length;

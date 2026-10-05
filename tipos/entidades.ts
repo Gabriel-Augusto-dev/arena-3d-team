@@ -18,7 +18,13 @@ export type Horario = string;
 /* Usuários                                                            */
 /* ------------------------------------------------------------------ */
 
-export type PerfilUsuario = "aluno" | "professor";
+/**
+ * professor → administrador: configura tudo e é o único que confirma pagamentos
+ * auxiliar  → professor auxiliar: vê alunos, presenças e se cada um pagou,
+ *             mas não confirma pagamentos nem altera cadastros/configurações
+ * aluno     → marca presença e paga pelo PIX
+ */
+export type PerfilUsuario = "aluno" | "professor" | "auxiliar";
 
 /** mensalista = vinculado a uma turma; avulso = só Day Use / experimental */
 export type PlanoAluno = "mensalista" | "avulso";
@@ -34,7 +40,7 @@ export interface Usuario {
   whatsapp: string;
   /** Somente alunos */
   plano: PlanoAluno;
-  /** Turma do mensalista (null para avulsos e professores) */
+  /** Turma do mensalista (null para avulsos, professores e auxiliares) */
   turmaId: string | null;
   /** Último dia coberto pela mensalidade paga. null = nunca pagou */
   validadeMensalidade: DataISO | null;
@@ -42,6 +48,8 @@ export interface Usuario {
   usouExperimental: boolean;
   ativo: boolean;
   observacoes: string;
+  /** Professor auxiliar: porcentagem de repasse usada por último no relatório da Equipe */
+  percentualRepasse?: number;
   criadoEm: DataHoraISO;
   atualizadoEm: DataHoraISO;
 }
@@ -66,6 +74,8 @@ export interface Turma {
   valorMensalidade: number;
   local: string;
   ativa: boolean;
+  /** Professor que dá a turma: uid do auxiliar, ou null = o próprio administrador */
+  responsavelId?: string | null;
   criadoEm: DataHoraISO;
   atualizadoEm: DataHoraISO;
 }
@@ -84,6 +94,8 @@ export interface Aula {
   horarioFim: Horario;
   status: StatusAula;
   motivoCancelamento: string;
+  /** Quem dá a aula (copiado da turma; no dia extra, escolhido ao criar). null = administrador */
+  responsavelId?: string | null;
   criadoEm: DataHoraISO;
   atualizadoEm: DataHoraISO;
 }

@@ -25,7 +25,7 @@ function NavegacaoAluno({ children }: { children: React.ReactNode }) {
 
 export function AreaAluno({ children }: { children: React.ReactNode }) {
   return (
-    <GuardaRota perfil="aluno">
+    <GuardaRota perfis={["aluno"]}>
       <ProvedorDadosAluno>
         <NavegacaoAluno>{children}</NavegacaoAluno>
       </ProvedorDadosAluno>

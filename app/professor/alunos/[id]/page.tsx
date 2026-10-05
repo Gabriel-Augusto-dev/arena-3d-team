@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Banknote,
   CalendarX,
+  KeyRound,
   Mail,
   MessageCircle,
   Pencil,
@@ -18,7 +19,8 @@ import { onde } from "@/lib/banco";
 import { useColecao } from "@/ganchos/useColecao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
-import { useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
+import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
+import { FolhaAcessoEnviado } from "@/componentes/professor/FolhaAcessoEnviado";
 import { FolhaFormularioAluno } from "@/componentes/professor/FolhaFormularioAluno";
 import { FolhaRegistrarPagamento } from "@/componentes/professor/FolhaRegistrarPagamento";
 import { ItemPagamento } from "@/componentes/pagamentos/ItemPagamento";
@@ -45,7 +47,8 @@ import {
 import { calcularSituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
 import { ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
-import { alternarAlunoAtivo } from "@/servicos/servicoAlunos";
+import { alternarAlunoAtivo, reenviarAcesso } from "@/servicos/servicoAlunos";
+import type { ResultadoNovaConta } from "@/lib/autenticacao";
 import { confirmarPagamento } from "@/servicos/servicoPagamentos";
 
 type Aba = "pagamentos" | "aulas";
@@ -53,22 +56,33 @@ type Aba = "pagamentos" | "aulas";
 export default function DetalheAluno() {
   const { id } = useParams<{ id: string }>();
   const professor = useUsuarioLogado();
-  const { alunoPorId, turmaPorId, pagamentos, carregando } = useDadosProfessor();
+  // O professor auxiliar vê a ficha e os pagamentos, mas não altera nada
+  const { ehAdministrador } = useAutenticacao();
+  const { alunoPorId, turmaPorId, presencaVisivel, pagamentoVisivel, carregando } = useDadosProfessor();
   const avisos = useAvisos();
   const [aba, setAba] = useState<Aba>("pagamentos");
   const [editando, setEditando] = useState(false);
   const [registrando, setRegistrando] = useState(false);
   const [alternando, setAlternando] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [reenviando, setReenviando] = useState(false);
+  const [acesso, setAcesso] = useState<ResultadoNovaConta | null>(null);
 
   // Histórico completo de presenças do aluno
   const { dados: presencasDoAluno } = useColecao("presencas", [onde("alunoId", "==", id)]);
 
   const aluno = alunoPorId.get(id);
-  const meusPagamentos = useMemo(() => pagamentos.filter((p) => p.alunoId === id), [pagamentos, id]);
+  // Histórico completo de pagamentos do aluno (buscado só ao abrir a ficha)
+  const { dados: pagamentosDoAluno } = useColecao("pagamentos", [onde("alunoId", "==", id)]);
+  const meusPagamentos = useMemo(
+    () =>
+      pagamentosDoAluno.filter(pagamentoVisivel).sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)),
+    [pagamentosDoAluno, pagamentoVisivel],
+  );
   const minhasAulas = useMemo(
-    () => [...presencasDoAluno].sort((a, b) => b.dataAula.localeCompare(a.dataAula)),
-    [presencasDoAluno],
+    // O auxiliar vê só as presenças das aulas dele
+    () => presencasDoAluno.filter(presencaVisivel).sort((a, b) => b.dataAula.localeCompare(a.dataAula)),
+    [presencasDoAluno, presencaVisivel],
   );
 
   if (carregando) return <Carregando />;
@@ -99,6 +113,19 @@ export default function DetalheAluno() {
       avisos.erro(erro);
     } finally {
       setAlternando(false);
+    }
+  };
+
+  const enviarAcesso = async () => {
+    setReenviando(true);
+    try {
+      const resultado = await reenviarAcesso(aluno.id);
+      if (resultado.emailEnviado) avisos.sucesso(`E-mail de acesso enviado para ${aluno.email}`);
+      else setAcesso(resultado);
+    } catch (erro) {
+      avisos.erro(erro);
+    } finally {
+      setReenviando(false);
     }
   };
 
@@ -166,9 +193,9 @@ export default function DetalheAluno() {
                 <LinhaInfo rotulo="Turma" valor="Sem turma fixa" />
               )}
               <LinhaInfo rotulo="Experimental" valor={aluno.usouExperimental ? "Já usou" : "Disponível"} />
-              <LinhaInfo rotulo="Total pago" valor={formatarMoeda(totalPago)} />
+              {ehAdministrador && <LinhaInfo rotulo="Total pago" valor={formatarMoeda(totalPago)} />}
             </dl>
-            {turma && (
+            {turma && ehAdministrador && (
               <Botao variante="sucesso" icone={Banknote} larguraTotal className="mt-3" onClick={() => setRegistrando(true)}>
                 Registrar mensalidade recebida
               </Botao>
@@ -179,7 +206,7 @@ export default function DetalheAluno() {
             <h2 className="font-titulo text-lg font-bold">Dados pessoais</h2>
             <dl className="mt-2 divide-y divide-linha/70">
               <LinhaInfo rotulo="E-mail" valor={<span className="break-all">{aluno.email}</span>} />
-              <LinhaInfo rotulo="CPF" valor={formatarCpf(aluno.cpf)} />
+              {ehAdministrador && <LinhaInfo rotulo="CPF" valor={formatarCpf(aluno.cpf)} />}
               <LinhaInfo
                 rotulo="Nascimento"
                 valor={aluno.dataNascimento ? `${formatarData(aluno.dataNascimento)} (${idade} anos)` : "—"}
@@ -192,14 +219,25 @@ export default function DetalheAluno() {
             )}
           </Cartao>
 
-          <div className="grid grid-cols-2 gap-2">
-            <Botao variante="secundario" icone={Pencil} onClick={() => setEditando(true)}>
-              Editar
-            </Botao>
-            <Botao variante={aluno.ativo ? "perigo" : "secundario"} icone={Power} carregando={alternando} onClick={alternarAtivo}>
-              {aluno.ativo ? "Desativar" : "Reativar"}
-            </Botao>
-          </div>
+          {ehAdministrador && (
+            <div className="grid grid-cols-2 gap-2">
+              <Botao variante="secundario" icone={Pencil} onClick={() => setEditando(true)}>
+                Editar
+              </Botao>
+              <Botao variante={aluno.ativo ? "perigo" : "secundario"} icone={Power} carregando={alternando} onClick={alternarAtivo}>
+                {aluno.ativo ? "Desativar" : "Reativar"}
+              </Botao>
+              <Botao
+                variante="fantasma"
+                icone={KeyRound}
+                className="col-span-2"
+                carregando={reenviando}
+                onClick={enviarAcesso}
+              >
+                Reenviar acesso por e-mail
+              </Botao>
+            </div>
+          )}
         </div>
 
         <section>
@@ -223,7 +261,7 @@ export default function DetalheAluno() {
                       <ItemPagamento
                         pagamento={p}
                         acoes={
-                          pendente ? (
+                          pendente && ehAdministrador ? (
                             <Botao
                               variante="sucesso"
                               tamanho="pequeno"
@@ -282,8 +320,9 @@ export default function DetalheAluno() {
         </section>
       </div>
 
-      {editando && <FolhaFormularioAluno aluno={aluno} aoFechar={() => setEditando(false)} />}
-      {registrando && <FolhaRegistrarPagamento aluno={aluno} aoFechar={() => setRegistrando(false)} />}
+      {editando && ehAdministrador && <FolhaFormularioAluno aluno={aluno} aoFechar={() => setEditando(false)} />}
+      {registrando && ehAdministrador && <FolhaRegistrarPagamento aluno={aluno} aoFechar={() => setRegistrando(false)} />}
+      {acesso && <FolhaAcessoEnviado nome={aluno.nome} resultado={acesso} aoFechar={() => setAcesso(null)} />}
     </>
   );
 }

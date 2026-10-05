@@ -1,36 +1,41 @@
 import {
+  confirmPasswordReset,
   createUserWithEmailAndPassword,
-  getAuth,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
-  type Auth,
+  verifyPasswordResetCode,
 } from "firebase/auth";
 import { banco } from "@/lib/banco";
-import { obterAppFirebase, obterAppFirebaseSecundario } from "@/lib/firebase/configuracao";
+import { chamarApi, ErroApi } from "@/lib/api/cliente";
+import { obterAuth } from "@/lib/firebase/clientes";
 import { somenteNumeros } from "@/lib/utilitarios/formatadores";
-import { ErroAutenticacao, type AdaptadorAutenticacao } from "./tiposAutenticacao";
+import { ErroAutenticacao, type AdaptadorAutenticacao, type ResultadoNovaConta } from "./tiposAutenticacao";
 
 /** Traduz os códigos de erro do Firebase Auth */
 function traduzirErro(erro: unknown): ErroAutenticacao {
+  if (erro instanceof ErroAutenticacao) return erro;
+  if (erro instanceof ErroApi) return new ErroAutenticacao(erro.message);
   const codigo = (erro as { code?: string })?.code ?? "";
   const mensagens: Record<string, string> = {
     "auth/invalid-credential": "E-mail ou senha incorretos",
     "auth/wrong-password": "E-mail ou senha incorretos",
-    "auth/user-not-found": "Nenhuma conta com este e-mail",
+    "auth/user-not-found": "E-mail ou senha incorretos",
     "auth/invalid-email": "E-mail inválido",
-    "auth/email-already-in-use": "Este e-mail já está cadastrado",
+    "auth/email-already-in-use": "Este e-mail já está cadastrado. Use “Esqueci minha senha” para entrar",
     "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres",
     "auth/too-many-requests": "Muitas tentativas. Aguarde alguns minutos",
     "auth/network-request-failed": "Sem conexão com a internet",
+    "auth/user-disabled": "Sua conta está desativada. Fale com o professor",
+    "auth/expired-action-code": "Este link expirou. Peça um novo em “Esqueci minha senha”",
+    "auth/invalid-action-code": "Este link não vale mais. Peça um novo em “Esqueci minha senha”",
   };
   return new ErroAutenticacao(mensagens[codigo] ?? "Não foi possível concluir. Tente novamente");
 }
 
 export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
-  let instancia: Auth | null = null;
-  const auth = () => (instancia ??= getAuth(obterAppFirebase()));
+  const auth = obterAuth;
 
   return {
     async entrar(email, senha) {
@@ -62,21 +67,21 @@ export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
         });
         return uid;
       } catch (erro) {
-        throw erro instanceof ErroAutenticacao ? erro : traduzirErro(erro);
+        throw traduzirErro(erro);
       }
     },
 
-    async criarContaPeloProfessor(perfil, senhaInicial) {
+    async criarContaPeloProfessor(perfil) {
       try {
-        const authSecundario = getAuth(obterAppFirebaseSecundario());
-        const credencial = await createUserWithEmailAndPassword(authSecundario, perfil.email.trim(), senhaInicial);
-        await signOut(authSecundario);
-        // Gravado com a sessão do professor (regras do Firestore permitem)
-        await banco.definir("usuarios", credencial.user.uid, {
-          ...perfil,
-          email: perfil.email.trim().toLowerCase(),
-        });
-        return credencial.user.uid;
+        return await chamarApi<ResultadoNovaConta>("/api/contas", { perfil });
+      } catch (erro) {
+        throw traduzirErro(erro);
+      }
+    },
+
+    async reenviarAcesso(uid) {
+      try {
+        return await chamarApi<ResultadoNovaConta>("/api/contas/acesso", { uid });
       } catch (erro) {
         throw traduzirErro(erro);
       }
@@ -88,7 +93,34 @@ export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
 
     async enviarRedefinicaoSenha(email) {
       try {
-        await sendPasswordResetEmail(auth(), email.trim());
+        // E-mail com a cara da arena, enviado pelo Brevo
+        await chamarApi("/api/senha", { email: email.trim() }, { autenticado: false });
+      } catch (erro) {
+        // Servidor sem Brevo/Admin configurado: usa o e-mail padrão do Firebase
+        if (erro instanceof ErroApi && erro.status === 503) {
+          try {
+            await sendPasswordResetEmail(auth(), email.trim());
+            return;
+          } catch (erroFirebase) {
+            if ((erroFirebase as { code?: string })?.code === "auth/user-not-found") return;
+            throw traduzirErro(erroFirebase);
+          }
+        }
+        throw traduzirErro(erro);
+      }
+    },
+
+    async verificarCodigoSenha(codigo) {
+      try {
+        return await verifyPasswordResetCode(auth(), codigo);
+      } catch (erro) {
+        throw traduzirErro(erro);
+      }
+    },
+
+    async definirSenha(codigo, novaSenha) {
+      try {
+        await confirmPasswordReset(auth(), codigo, novaSenha);
       } catch (erro) {
         throw traduzirErro(erro);
       }

@@ -2,26 +2,28 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { autenticacao, ErroAutenticacao, type DadosNovaConta } from "@/lib/autenticacao";
+import { chamarApi } from "@/lib/api/cliente";
 import { banco } from "@/lib/banco";
+import { ehAdministrador, ehEquipe, rotaInicialDoPerfil } from "@/lib/permissoes";
 import type { Usuario } from "@/tipos";
 import { notificarNovoCadastro } from "@/servicos/servicoNotificacoes";
+
+export { rotaInicialDoPerfil };
 
 interface ValorAutenticacao {
   usuario: Usuario | null;
   /** true até sabermos se há sessão e carregarmos o documento do usuário */
   carregando: boolean;
-  ehProfessor: boolean;
+  /** Professor administrador: o único que confirma pagamentos e muda cadastros */
+  ehAdministrador: boolean;
+  /** Professor ou professor auxiliar */
+  ehEquipe: boolean;
   entrar(email: string, senha: string): Promise<Usuario>;
   cadastrar(dados: DadosNovaConta): Promise<Usuario>;
   sair(): Promise<void>;
 }
 
 const ContextoAutenticacao = createContext<ValorAutenticacao | null>(null);
-
-/** Rota inicial de cada perfil — o sistema decide sozinho após o login */
-export function rotaInicialDoPerfil(usuario: Usuario): string {
-  return usuario.perfil === "professor" ? "/professor" : "/aluno";
-}
 
 /**
  * Link aberto sem estar logado (ex.: link de presença enviado no WhatsApp):
@@ -91,8 +93,9 @@ export function ProvedorAutenticacao({ children }: { children: React.ReactNode }
     const perfil = await banco.obter("usuarios", novoUid);
     if (!perfil) throw new ErroAutenticacao("Não foi possível concluir o cadastro");
     const turma = perfil.turmaId ? await banco.obter("turmas", perfil.turmaId) : null;
-    // O aviso ao professor não pode impedir o cadastro de terminar
+    // O aviso ao professor e o e-mail de boas-vindas não podem impedir o cadastro de terminar
     await notificarNovoCadastro(perfil, turma).catch(() => undefined);
+    void chamarApi("/api/emails/boas-vindas").catch(() => undefined);
     return perfil;
   }, []);
 
@@ -102,7 +105,8 @@ export function ProvedorAutenticacao({ children }: { children: React.ReactNode }
     () => ({
       usuario,
       carregando,
-      ehProfessor: usuario?.perfil === "professor",
+      ehAdministrador: ehAdministrador(usuario),
+      ehEquipe: ehEquipe(usuario),
       entrar,
       cadastrar,
       sair,

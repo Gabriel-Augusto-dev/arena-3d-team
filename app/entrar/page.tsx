@@ -7,21 +7,10 @@ import { Mail } from "lucide-react";
 import { destinoAposLogin, useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { autenticacao } from "@/lib/autenticacao";
-import { firebaseAtivo } from "@/lib/firebase/configuracao";
-import { SENHA_DEMONSTRACAO } from "@/lib/dados/dadosIniciais";
 import { validarEmail } from "@/lib/utilitarios/validacoes";
 import { MolduraAcesso } from "@/componentes/navegacao/MolduraAcesso";
 import { Campo, CampoSenha } from "@/componentes/interface/Campos";
 import { Botao } from "@/componentes/interface/Botao";
-
-const CONTAS_DEMONSTRACAO = [
-  { rotulo: "Professor", email: "professor@arena3d.com" },
-  { rotulo: "Aluna em dia", email: "aluno@arena3d.com" },
-  { rotulo: "Mensalidade atrasada", email: "bruno@arena3d.com" },
-  { rotulo: "Avulsa nova", email: "carla@arena3d.com" },
-  { rotulo: "Day Use em atraso", email: "gabriela@arena3d.com" },
-  { rotulo: "Avulso a pagar", email: "marcos@arena3d.com" },
-];
 
 /**
  * Uma única tela de login para todos. Depois de autenticar, o sistema lê
@@ -36,10 +25,11 @@ export default function PaginaEntrar() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [enviandoLink, setEnviandoLink] = useState(false);
 
   // Já logado? Vai direto para a área certa
   useEffect(() => {
-    if (!carregando && usuario) router.replace(destinoAposLogin(usuario));
+    if (!carregando && usuario?.ativo) router.replace(destinoAposLogin(usuario));
   }, [carregando, usuario, router]);
 
   const enviar = async (evento: React.FormEvent) => {
@@ -59,11 +49,15 @@ export default function PaginaEntrar() {
 
   const esqueciSenha = async () => {
     if (!validarEmail(email)) return setErro("Digite seu e-mail acima para receber o link");
+    setErro("");
+    setEnviandoLink(true);
     try {
       await autenticacao.enviarRedefinicaoSenha(email);
-      avisos.sucesso("Enviamos um link de redefinição para o seu e-mail");
+      avisos.sucesso("Se o e-mail estiver cadastrado, você vai receber um link para criar uma senha nova");
     } catch (e) {
       avisos.erro(e);
+    } finally {
+      setEnviandoLink(false);
     }
   };
 
@@ -91,8 +85,13 @@ export default function PaginaEntrar() {
           onChange={(e) => setSenha(e.target.value)}
         />
         <div className="-mt-1 flex justify-end">
-          <button type="button" onClick={esqueciSenha} className="text-sm font-semibold text-marinho-600 hover:text-marinho-800">
-            Esqueci minha senha
+          <button
+            type="button"
+            onClick={esqueciSenha}
+            disabled={enviandoLink}
+            className="text-sm font-semibold text-marinho-600 hover:text-marinho-800 disabled:opacity-50"
+          >
+            {enviandoLink ? "Enviando link…" : "Esqueci minha senha"}
           </button>
         </div>
 
@@ -113,30 +112,6 @@ export default function PaginaEntrar() {
           Criar conta
         </Link>
       </p>
-
-      {!firebaseAtivo && (
-        <div className="mt-8 rounded-3xl border border-dashed border-areia-400 bg-areia-50 p-4">
-          
-          
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {CONTAS_DEMONSTRACAO.map((conta) => (
-              <button
-                key={conta.email}
-                type="button"
-                onClick={() => {
-                  setEmail(conta.email);
-                  setSenha(SENHA_DEMONSTRACAO);
-                  setErro("");
-                }}
-                className="rounded-xl bg-white px-3 py-2 text-left ring-1 ring-linha transition hover:ring-marinho-200"
-              >
-                <span className="block text-[13px] font-semibold">{conta.rotulo}</span>
-                <span className="block truncate text-xs text-suave">{conta.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </MolduraAcesso>
   );
 }

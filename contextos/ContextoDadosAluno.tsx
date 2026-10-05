@@ -38,6 +38,9 @@ const ContextoDadosAluno = createContext<DadosAluno | null>(null);
 
 export const DIAS_AGENDA_ALUNO = 14;
 
+/** Histórico de pagamentos que o aluno vê no app */
+export const DIAS_HISTORICO_PAGAMENTOS = 365;
+
 export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) {
   const aluno = useUsuarioLogado();
   const hoje = hojeISO();
@@ -45,13 +48,24 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
 
   const turmas = useColecao("turmas", [onde("ativa", "==", true)]);
   const aulas = useColecao("aulas", [onde("data", ">=", hoje)]);
-  const presencas = useColecao("presencas", [onde("alunoId", "==", aluno.id)]);
-  const pagamentos = useColecao("pagamentos", [onde("alunoId", "==", aluno.id)]);
+  // Presenças: só das aulas de hoje em diante (é o que a agenda precisa)
+  const presencas = useColecao("presencas", [onde("alunoId", "==", aluno.id), onde("dataAula", ">=", hoje)]);
+  // Pagamentos: os dos últimos 12 meses + os em aberto de qualquer data
+  const inicioHistorico = adicionarDias(hoje, -DIAS_HISTORICO_PAGAMENTOS);
+  const pagamentosRecentes = useColecao("pagamentos", [
+    onde("alunoId", "==", aluno.id),
+    onde("criadoEm", ">=", inicioHistorico),
+  ]);
+  const pagamentosAbertos = useColecao("pagamentos", [
+    onde("alunoId", "==", aluno.id),
+    onde("status", "in", ["pendente", "em_analise"]),
+  ]);
   const { configuracoes, carregando: carregandoConfig } = useConfiguracoes();
 
   const valor = useMemo<DadosAluno>(() => {
     const turmaPorId = mapaDeTurmas(turmas.dados);
-    const meusPagamentos = [...pagamentos.dados].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+    const porId = new Map([...pagamentosRecentes.dados, ...pagamentosAbertos.dados].map((p) => [p.id, p]));
+    const meusPagamentos = [...porId.values()].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
     return {
       aluno,
       turmas: turmas.dados,
@@ -70,9 +84,14 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
       mensalidadeEmAnalise:
         meusPagamentos.find((p) => p.tipo === "mensalidade" && p.status === "em_analise") ?? null,
       carregando:
-        turmas.carregando || aulas.carregando || presencas.carregando || pagamentos.carregando || carregandoConfig,
+        turmas.carregando ||
+        aulas.carregando ||
+        presencas.carregando ||
+        pagamentosRecentes.carregando ||
+        pagamentosAbertos.carregando ||
+        carregandoConfig,
     };
-  }, [aluno, turmas, aulas, presencas, pagamentos, configuracoes, carregandoConfig, limite]);
+  }, [aluno, turmas, aulas, presencas, pagamentosRecentes, pagamentosAbertos, configuracoes, carregandoConfig, limite]);
 
   return <ContextoDadosAluno.Provider value={valor}>{children}</ContextoDadosAluno.Provider>;
 }

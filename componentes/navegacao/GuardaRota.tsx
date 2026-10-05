@@ -8,24 +8,28 @@ import { TelaAbertura } from "./TelaAbertura";
 
 /**
  * Protege uma área do app: sem sessão → /entrar;
- * perfil diferente → manda para a área certa do usuário.
+ * perfil que não pode entrar aqui → manda para a área certa do usuário.
  */
-export function GuardaRota({ perfil, children }: { perfil: PerfilUsuario; children: React.ReactNode }) {
-  const { usuario, carregando } = useAutenticacao();
+export function GuardaRota({ perfis, children }: { perfis: PerfilUsuario[]; children: React.ReactNode }) {
+  const { usuario, carregando, sair } = useAutenticacao();
   const router = useRouter();
 
-  const liberado = !!usuario && usuario.perfil === perfil && usuario.ativo;
+  const permitido = !!usuario && perfis.includes(usuario.perfil);
+  const liberado = permitido && usuario.ativo;
 
   useEffect(() => {
     if (carregando) return;
-    if (!usuario || !usuario.ativo) {
+    if (!usuario) {
       // Guarda o link (ex.: presença do dia extra) para voltar a ele após o login
-      if (!usuario) guardarDestino(window.location.pathname + window.location.search);
+      guardarDestino(window.location.pathname + window.location.search);
       router.replace("/entrar");
+    } else if (!usuario.ativo) {
+      // Conta desativada pelo professor: encerra a sessão
+      sair().finally(() => router.replace("/entrar"));
     }
-    else if (usuario.perfil !== perfil) router.replace(rotaInicialDoPerfil(usuario));
+    else if (!permitido) router.replace(rotaInicialDoPerfil(usuario));
     else limparDestino();
-  }, [carregando, usuario, perfil, router]);
+  }, [carregando, usuario, permitido, router, sair]);
 
   if (carregando || !liberado) return <TelaAbertura />;
   return <>{children}</>;

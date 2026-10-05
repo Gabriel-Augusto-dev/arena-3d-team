@@ -12,6 +12,7 @@ export function CartaoAulaProfessor({
   turma,
   presencas,
   pagamentoPorId,
+  responsavel,
   aoAbrir,
 }: {
   aula: Aula;
@@ -19,6 +20,8 @@ export function CartaoAulaProfessor({
   /** Presenças confirmadas desta aula */
   presencas: Presenca[];
   pagamentoPorId: Map<string, Pagamento>;
+  /** Nome do auxiliar que dá a aula (só aparece para o administrador) */
+  responsavel?: string;
   aoAbrir(): void;
 }) {
   const cancelada = aula.status === "cancelada";
@@ -44,6 +47,9 @@ export function CartaoAulaProfessor({
         <span className={`block truncate font-titulo text-[19px] font-bold leading-tight ${cancelada ? "line-through" : ""}`}>
           {turma?.nome}
         </span>
+        {responsavel && (
+          <span className="mt-0.5 block truncate text-[12px] font-semibold text-marinho-600">Prof. {responsavel}</span>
+        )}
         <span className="mt-1 flex min-w-0 items-center gap-2">
           {cancelada ? (
             <Selo tom="vermelho">Cancelada</Selo>

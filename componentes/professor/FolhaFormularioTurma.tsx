@@ -11,6 +11,7 @@ import { NOMES_DIAS_CURTOS } from "@/lib/utilitarios/datas";
 import { ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { salvarTurma, type DadosTurma } from "@/servicos/servicoTurmas";
 import { garantirAulasFuturas } from "@/servicos/servicoAulas";
+import { SeletorResponsavel } from "./SeletorResponsavel";
 
 const ORDEM_DIAS: DiaSemana[] = [1, 2, 3, 4, 5, 6, 0];
 
@@ -28,6 +29,7 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
     valorMensalidade: turma?.valorMensalidade ?? configuracoes.valorMensalidadePadrao,
     local: turma?.local ?? "",
     ativa: turma?.ativa ?? true,
+    responsavelId: turma?.responsavelId ?? null,
   });
 
   const alterar = <C extends keyof DadosTurma>(campo: C, valor: DadosTurma[C]) => {
@@ -84,6 +86,16 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
           </CampoSelecao>
           <Campo rotulo="Local" placeholder="Quadra 1" value={dados.local} onChange={(e) => alterar("local", e.target.value)} />
         </div>
+
+        <SeletorResponsavel
+          valor={dados.responsavelId ?? null}
+          aoMudar={(id) => alterar("responsavelId", id)}
+          dica={
+            turma
+              ? "Ao trocar, as próximas aulas passam para o novo responsável; as que já aconteceram não mudam"
+              : undefined
+          }
+        />
 
         <fieldset>
           <legend className="mb-1.5 text-sm font-semibold">Dias da semana</legend>

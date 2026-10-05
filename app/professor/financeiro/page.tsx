@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import { CircleCheck, Hourglass, Receipt, Search, TrendingUp, Wallet } from "lucide-react";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAbaDaUrl } from "@/ganchos/useAbaDaUrl";
+import { useColecao } from "@/ganchos/useColecao";
+import { onde } from "@/lib/banco";
 import { CartaoPendencia } from "@/componentes/professor/CartaoPendencia";
 import { CartaoCobranca } from "@/componentes/professor/CartaoCobranca";
 import { ItemPagamento } from "@/componentes/pagamentos/ItemPagamento";
@@ -22,7 +24,7 @@ type Aba = (typeof ABAS)[number];
 type FiltroTipo = "todos" | TipoPagamento;
 
 export default function FinanceiroProfessor() {
-  const { pagamentos, paraConferir, aReceber, alunos, carregando } = useDadosProfessor();
+  const { paraConferir, aReceber, alunos, carregando } = useDadosProfessor();
   const [aba, setAba] = useAbaDaUrl<Aba>(ABAS, "conferir");
   const [tipo, setTipo] = useState<FiltroTipo>("todos");
   const [mes, setMes] = useState(competencia(hojeISO()));
@@ -45,21 +47,25 @@ export default function FinanceiroProfessor() {
     return [...new Set(lista)];
   }, []);
 
+  // Pagamentos analisados (confirmados/recusados) no mês escolhido — busca só esse mês
+  const [ano, numeroMes] = mes.split("-").map(Number);
+  const inicioMes = new Date(ano, numeroMes - 1, 1).toISOString();
+  const fimMes = new Date(ano, numeroMes, 1).toISOString();
+  const doMes = useColecao("pagamentos", [onde("confirmadoEm", ">=", inicioMes), onde("confirmadoEm", "<", fimMes)]);
+
   const recebidoNoMes = useMemo(
-    () =>
-      pagamentos
-        .filter((p) => p.status === "confirmado" && (p.confirmadoEm ?? p.criadoEm).startsWith(mes))
-        .reduce((t, p) => t + p.valor, 0),
-    [pagamentos, mes],
+    () => doMes.dados.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0),
+    [doMes.dados],
   );
 
-  const historico = pagamentos.filter(
-    (p) =>
-      (p.status === "confirmado" || p.status === "recusado") &&
-      (p.confirmadoEm ?? p.criadoEm).startsWith(mes) &&
-      (tipo === "todos" || p.tipo === tipo) &&
-      (!busca.trim() || contemTexto(p.alunoNome, busca)),
-  );
+  const historico = doMes.dados
+    .filter(
+      (p) =>
+        (p.status === "confirmado" || p.status === "recusado") &&
+        (tipo === "todos" || p.tipo === tipo) &&
+        (!busca.trim() || contemTexto(p.alunoNome, busca)),
+    )
+    .sort((a, b) => (b.confirmadoEm ?? "").localeCompare(a.confirmadoEm ?? ""));
 
   return (
     <>

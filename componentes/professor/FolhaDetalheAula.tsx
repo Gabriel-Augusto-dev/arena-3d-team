@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Banknote, CalendarX, CircleCheck, RotateCcw, UserMinus } from "lucide-react";
+import { CalendarX, Link2, RotateCcw, UserMinus } from "lucide-react";
 import type { Pagamento, Presenca } from "@/tipos";
-import { useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
+import { useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Folha } from "@/componentes/interface/Folha";
@@ -14,20 +14,21 @@ import { Avatar, Selo } from "@/componentes/interface/Elementos";
 import { aulaJaComecou, formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { ROTULOS_SITUACAO_COBRANCA } from "@/lib/rotulos";
-import { ehDiaExtra, mensalistasSemPresenca, presencasDaAula, ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
+import { aulaEncerrada, ehDiaExtra, mensalistasSemPresenca, presencasDaAula, ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { cancelarAula, reativarAula, removerPresenca } from "@/servicos/servicoAulas";
-import { confirmarPagamento } from "@/servicos/servicoPagamentos";
 import { CompartilharLinkAula } from "./CompartilharLinkAula";
 
 /** Lista de presença da aula, com a situação de pagamento de cada Day Use */
 export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFechar(): void }) {
-  const professor = useUsuarioLogado();
+  // O professor auxiliar só acompanha: não cancela aula, não tira aluno e não confirma pagamento
+  const { ehAdministrador } = useAutenticacao();
   const { aulas, turmaPorId, presencas, pagamentos, alunos, alunoPorId } = useDadosProfessor();
   const avisos = useAvisos();
   const [cancelando, setCancelando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [mostrarLink, setMostrarLink] = useState(false);
 
   const aula = aulas.find((a) => a.id === aulaId);
   if (!aula) return null;
@@ -76,7 +77,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
       titulo={turma?.nome ?? "Aula"}
       descricao={`${formatarDataExtenso(aula.data)}, ${aula.horarioInicio} às ${aula.horarioFim}${turma?.local ? ` · ${turma.local}` : ""}`}
       rodape={
-        cancelada ? (
+        !ehAdministrador ? undefined : cancelada ? (
           <Botao
             variante="secundario"
             tamanho="grande"
@@ -127,14 +128,27 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
           </p>
         )}
 
-        {diaExtra && !cancelada && !cancelando && (
-          <div className="flex flex-col gap-2">
-            <p className="rounded-2xl bg-alerta-fundo px-4 py-3 text-sm text-alerta">
-              <strong>Dia extra:</strong> todos pagam diária, inclusive mensalistas.
-            </p>
-            <CompartilharLinkAula aula={aula} />
-          </div>
+        {!ehAdministrador && (
+          <p className="rounded-2xl bg-marinho-50 px-4 py-3 text-sm text-marinho-800">
+            Você acompanha a lista e quem já pagou. Quem confirma os pagamentos é o professor responsável.
+          </p>
         )}
+
+        {diaExtra && !cancelada && !cancelando && (
+          <p className="rounded-2xl bg-alerta-fundo px-4 py-3 text-sm text-alerta">
+            <strong>Dia extra:</strong> todos pagam diária, inclusive mensalistas.
+          </p>
+        )}
+
+        {/* Link da lista de presença: o professor copia e envia no WhatsApp */}
+        {!cancelada && !cancelando && !aulaEncerrada(aula) &&
+          (diaExtra || mostrarLink ? (
+            <CompartilharLinkAula aula={aula} />
+          ) : (
+            <Botao variante="secundario" icone={Link2} larguraTotal onClick={() => setMostrarLink(true)}>
+              Gerar link da lista de presença
+            </Botao>
+          ))}
 
         {cancelando ? (
           <CampoTexto
@@ -175,11 +189,8 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
                         ehMensalista={ehMensalista}
                         pagamento={pagamentoDe(p)}
                         ocupado={ocupado}
-                        aoReceber={(pg) =>
-                          executar(p.id + "receber", () => confirmarPagamento(pg, professor.id, "dinheiro"), `Day Use de ${p.alunoNome} recebido`)
-                        }
                         aoRemover={
-                          !cancelada
+                          ehAdministrador && !cancelada
                             ? () => executar(p.id, () => removerPresenca(p), `${p.alunoNome} removido da lista`)
                             : undefined
                         }
@@ -210,14 +221,12 @@ function LinhaPresenca({
   ehMensalista,
   pagamento,
   ocupado,
-  aoReceber,
   aoRemover,
 }: {
   presenca: Presenca;
   ehMensalista: boolean;
   pagamento?: Pagamento;
   ocupado: string | null;
-  aoReceber(pagamento: Pagamento): void;
   aoRemover?(): void;
 }) {
   const situacao = !ehMensalista && pagamento ? situacaoCobranca(pagamento) : null;
