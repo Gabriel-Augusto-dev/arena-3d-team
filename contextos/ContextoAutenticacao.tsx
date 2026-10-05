@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { autenticacao, ErroAutenticacao, type DadosNovaConta } from "@/lib/autenticacao";
 import { chamarApi } from "@/lib/api/cliente";
 import { banco } from "@/lib/banco";
+import { firebaseConfigurado } from "@/lib/firebase/configuracao";
 import { ehAdministrador, ehEquipe, rotaInicialDoPerfil } from "@/lib/permissoes";
 import type { Usuario } from "@/tipos";
 import { notificarNovoCadastro } from "@/servicos/servicoNotificacoes";
@@ -60,7 +61,30 @@ export function destinoAposLogin(usuario: Usuario): string {
   return inicial;
 }
 
+/**
+ * Sem as variáveis NEXT_PUBLIC_FIREBASE_* o app não tem como funcionar:
+ * mostra um aviso claro em vez de quebrar a página.
+ */
 export function ProvedorAutenticacao({ children }: { children: React.ReactNode }) {
+  if (!firebaseConfigurado) return <AvisoSemConfiguracao />;
+  return <ProvedorAutenticacaoFirebase>{children}</ProvedorAutenticacaoFirebase>;
+}
+
+function AvisoSemConfiguracao() {
+  return (
+    <main className="grid min-h-dvh place-items-center bg-fundo p-6">
+      <div className="max-w-md rounded-3xl bg-white p-6 text-center ring-1 ring-linha/70">
+        <p className="font-titulo text-2xl font-extrabold uppercase">App não configurado</p>
+        <p className="mt-2 text-[15px] leading-relaxed text-suave">
+          Faltam as variáveis <code className="font-mono text-[13px]">NEXT_PUBLIC_FIREBASE_*</code>. No Vercel:
+          Settings → Environment Variables. Depois de cadastrar, faça um novo deploy (Redeploy).
+        </p>
+      </div>
+    </main>
+  );
+}
+
+function ProvedorAutenticacaoFirebase({ children }: { children: React.ReactNode }) {
   const [uid, setUid] = useState<string | null | undefined>(undefined);
   const [usuarioCarregado, setUsuarioCarregado] = useState<{ uid: string; usuario: Usuario | null } | null>(null);
 
