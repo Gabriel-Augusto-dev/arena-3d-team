@@ -1,0 +1,146 @@
+rules_version = '2';
+
+// Regras de segurança da 3D Team
+// Publique em: Console do Firebase → Firestore Database → Regras
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() {
+      return request.auth != null;
+    }
+
+    function usuarioAtual() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    // O perfil vem do documento usuarios/{uid}: ninguém escolhe ser professor
+    function ehProfessor() {
+      return logado() && usuarioAtual().perfil == 'professor';
+    }
+
+    function ehDono(uid) {
+      return logado() && request.auth.uid == uid;
+    }
+
+    function soAltera(campos) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos);
+    }
+
+    // ---------------- Usuários ----------------
+    match /usuarios/{uid} {
+      allow read: if ehDono(uid) || ehProfessor();
+
+      // Cadastro feito pelo próprio aluno: escolhe Day Use (avulso) ou mensalista com turma.
+      // A mensalidade começa sem validade: só libera quando o professor confirmar o pagamento.
+      allow create: if ehProfessor() || (
+        ehDono(uid)
+        && request.resource.data.perfil == 'aluno'
+        && (
+          (request.resource.data.plano == 'avulso' && request.resource.data.turmaId == null)
+          || (request.resource.data.plano == 'mensalista' && request.resource.data.turmaId is string)
+        )
+        && request.resource.data.validadeMensalidade == null
+        && request.resource.data.usouExperimental == false
+      );
+
+      allow update: if ehProfessor()
+        // aluno edita os próprios dados básicos
+        || (ehDono(uid) && soAltera(['nome', 'whatsapp', 'dataNascimento', 'atualizadoEm']))
+        // agendar / desmarcar a aula experimental
+        || (ehDono(uid) && soAltera(['usouExperimental', 'atualizadoEm']));
+
+      allow delete: if ehProfessor();
+    }
+
+    // ---------------- Turmas, aulas e configurações ----------------
+    // Turmas e configurações são lidas também na tela de cadastro (antes do login)
+    match /turmas/{id} {
+      allow read: if true;
+      allow write: if ehProfessor();
+    }
+
+    match /aulas/{id} {
+      allow read: if logado();
+      allow write: if ehProfessor();
+    }
+
+    match /configuracoes/{id} {
+      allow read: if true;
+      allow write: if ehProfessor();
+    }
+
+    // ---------------- Presenças ----------------
+    match /presencas/{id} {
+      // Aluno vê as próprias presenças; professor vê todas
+      allow read: if ehProfessor() || (logado() && resource.data.alunoId == request.auth.uid);
+
+      // Aluno marca presença em nome dele. O tipo (mensalista / day_use / experimental)
+      // é decidido no app; o bloqueio por Day Use em atraso também é conferido no app.
+      allow create: if ehProfessor() || (
+        logado()
+        && request.resource.data.alunoId == request.auth.uid
+        && request.resource.data.status == 'confirmada'
+        && request.resource.data.tipo in ['mensalista', 'day_use', 'experimental']
+        && (request.resource.data.tipo != 'mensalista' || usuarioAtual().plano == 'mensalista')
+      );
+
+      // Aluno só pode desmarcar a própria presença
+      allow update: if ehProfessor() || (
+        resource.data.alunoId == request.auth.uid
+        && request.resource.data.status == 'cancelada'
+        && soAltera(['status', 'atualizadoEm'])
+      );
+
+      allow delete: if ehProfessor();
+    }
+
+    // ---------------- Pagamentos ----------------
+    match /pagamentos/{id} {
+      allow read: if ehProfessor() || (logado() && resource.data.alunoId == request.auth.uid);
+
+      // Aluno cria cobrança de Day Use (pendente) ou avisa mensalidade paga (em_analise).
+      // Confirmar é exclusivo do professor.
+      allow create: if ehProfessor() || (
+        logado()
+        && request.resource.data.alunoId == request.auth.uid
+        && request.resource.data.status in ['pendente', 'em_analise']
+        && request.resource.data.confirmadoPor == null
+      );
+
+      // Aluno: avisar que pagou (pendente → em_analise) ou cancelar ao desmarcar presença
+      allow update: if ehProfessor() || (
+        resource.data.alunoId == request.auth.uid
+        && resource.data.status == 'pendente'
+        && (
+          (request.resource.data.status == 'em_analise'
+            && soAltera(['status', 'informadoEm', 'observacaoAluno', 'motivoRecusa', 'atualizadoEm']))
+          || (request.resource.data.status == 'cancelado'
+            && soAltera(['status', 'motivoRecusa', 'atualizadoEm']))
+        )
+      );
+
+      allow delete: if false;
+    }
+
+    // ---------------- Notificações ----------------
+    match /notificacoes/{id} {
+      function destinatario() {
+        return (logado() && resource.data.usuarioId == request.auth.uid)
+          || (ehProfessor() && resource.data.paraPerfil == 'professor');
+      }
+
+      allow read: if destinatario();
+
+      // Aluno cria avisos para os professores (ou para si mesmo); professor para qualquer um
+      allow create: if ehProfessor() || (
+        logado() && (
+          request.resource.data.paraPerfil == 'professor'
+          || request.resource.data.usuarioId == request.auth.uid
+        )
+      );
+
+      allow update: if destinatario() && soAltera(['lida', 'atualizadoEm']);
+      allow delete: if ehProfessor();
+    }
+  }
+}
