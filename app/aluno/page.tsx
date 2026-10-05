@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, Lock } from "lucide-react";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
+import { useAvisos } from "@/contextos/ContextoAvisos";
 import { useAgendaAluno, type AulaDoAluno } from "@/ganchos/useAgendaAluno";
 import { IngressoAula } from "@/componentes/aulas/IngressoAula";
 import { CartaoAulaAluno } from "@/componentes/aulas/CartaoAulaAluno";
@@ -13,20 +15,59 @@ import { Botao, BotaoLink } from "@/componentes/interface/Botao";
 import { formatarDataExtenso, saudacao } from "@/lib/utilitarios/datas";
 import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
 import { situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
+import { ehDiaExtra } from "@/servicos/regras/regrasAula";
 
-export default function InicioAluno() {
+export default function PaginaInicioAluno() {
+  // useSearchParams precisa de Suspense para a página continuar estática
+  return (
+    <Suspense>
+      <InicioAluno />
+    </Suspense>
+  );
+}
+
+function InicioAluno() {
   const { aluno, cobrancasAbertas, cobrancasAtrasadas, carregando } = useDadosAluno();
   const { agenda } = useAgendaAluno();
   const [abertaId, setAbertaId] = useState<string | null>(null);
   const [pagando, setPagando] = useState(false);
+  const avisos = useAvisos();
+  // Link de presença enviado pelo professor: /aluno?aula=<id>
+  const aulaNaUrl = useSearchParams().get("aula");
+  const [linkFechado, setLinkFechado] = useState(false);
+  const aulaDoLink = linkFechado ? null : aulaNaUrl;
+
+  const linkValido = !!aulaDoLink && agenda.some((a) => a.aula.id === aulaDoLink);
+  const linkTratado = useRef(false);
+
+  useEffect(() => {
+    if (!aulaDoLink || carregando || linkTratado.current) return;
+    linkTratado.current = true;
+    if (!linkValido) avisos.erro(new Error("Essa aula não está mais disponível"));
+  }, [aulaDoLink, carregando, linkValido, avisos]);
 
   const ativas = agenda.filter((a) => a.situacao.tipo !== "encerrada" && a.aula.status === "agendada");
   const proxima = ativas.find((a) => a.situacao.tipo === "confirmada");
+  // Dias extras: aparecem para todos, mensalistas e avulsos (todos pagam diária)
+  const diasExtras = ativas.filter((a) => ehDiaExtra(a.aula) && a.situacao.tipo !== "confirmada");
   // Sugestões: aulas da turma do mensalista; para avulsos, as próximas aulas
   const sugestoes = ativas
-    .filter((a) => a.situacao.tipo !== "confirmada" && (aluno.plano !== "mensalista" || a.ehDaMinhaTurma))
+    .filter(
+      (a) =>
+        !ehDiaExtra(a.aula) &&
+        a.situacao.tipo !== "confirmada" &&
+        (aluno.plano !== "mensalista" || a.ehDaMinhaTurma),
+    )
     .slice(0, 3);
-  const aberta = agenda.find((a) => a.aula.id === abertaId);
+  const idAberto = abertaId ?? (linkValido && !carregando ? aulaDoLink : null);
+  const aberta = agenda.find((a) => a.aula.id === idAberto);
+  const fecharFolha = () => {
+    setAbertaId(null);
+    if (aulaNaUrl) {
+      setLinkFechado(true);
+      window.history.replaceState(null, "", "/aluno");
+    }
+  };
 
   return (
     <>
@@ -65,6 +106,23 @@ export default function InicioAluno() {
                 />
               </button>
             )
+          )}
+
+          {diasExtras.length > 0 && (
+            <section>
+              <TituloSecao titulo="Dia extra" />
+              <p className="-mt-1 mb-2.5 text-sm text-suave">
+                Treino fora da agenda. Todos pagam diária, inclusive mensalistas.
+              </p>
+              <ul className="flex flex-col gap-3">
+                {diasExtras.map((item) => (
+                  <li key={item.aula.id}>
+                    <p className="mb-1.5 ml-1 text-[13px] font-semibold text-suave">{formatarDataExtenso(item.aula.data)}</p>
+                    <CartaoAulaAluno item={item} aoAbrir={() => setAbertaId(item.aula.id)} />
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
 
           <section>
@@ -107,7 +165,7 @@ export default function InicioAluno() {
         </aside>
       </div>
 
-      {aberta && <FolhaPresenca item={aberta} aoFechar={() => setAbertaId(null)} />}
+      {aberta && <FolhaPresenca item={aberta} aoFechar={fecharFolha} />}
       {pagando && <FolhaPagarCobrancas cobrancas={cobrancasAbertas} aoFechar={() => setPagando(false)} />}
     </>
   );

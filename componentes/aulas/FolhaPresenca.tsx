@@ -168,12 +168,17 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                   </BotaoLink>
                 </div>
               )}
+              {situacao.motivo === "dia_extra" && (
+                <div className="rounded-2xl bg-alerta-fundo p-4 text-sm text-alerta">
+                  <strong>Dia extra.</strong> Este treino é fora da agenda: todos pagam diária, inclusive mensalistas.
+                </div>
+              )}
               {situacao.motivo === "outra_turma" && (
                 <p className="text-sm text-suave">Esta aula não é da sua turma, então entra como Day Use.</p>
               )}
               <Opcao
                 icone={Ticket}
-                titulo="Day Use"
+                titulo={situacao.motivo === "dia_extra" ? "Diária" : "Day Use"}
                 preco={formatarMoeda(valor)}
                 descricao="Marque presença agora e pague quando quiser até a meia-noite do dia da aula."
                 aoEscolher={marcar}

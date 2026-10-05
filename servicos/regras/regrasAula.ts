@@ -13,11 +13,45 @@ import { cobrancasEmAtraso } from "./regrasPagamento";
  *    BLOQUEIA novas presenças até ser pago.
  *  - Experimental: gratuita, uma única vez.
  *  - Mensalista com mensalidade atrasada marca como Day Use.
+ *  - Dia extra (criado pelo professor quando quiser): TODOS pagam diária,
+ *    inclusive mensalistas. Não vale aula experimental.
  */
+
+/** Turma "virtual" das aulas de dia extra (não existe documento no banco) */
+export const TURMA_DIA_EXTRA = "dia_extra";
+
+export const ehDiaExtra = (aula: Pick<Aula, "turmaId">) => aula.turmaId === TURMA_DIA_EXTRA;
+
+export const TURMA_VIRTUAL_DIA_EXTRA: Turma = {
+  id: TURMA_DIA_EXTRA,
+  nome: "Dia extra",
+  nivel: "livre",
+  diasSemana: [],
+  horarioInicio: "",
+  horarioFim: "",
+  valorMensalidade: 0,
+  local: "",
+  ativa: true,
+  criadoEm: "",
+  atualizadoEm: "",
+};
+
+/** Mapa de turmas incluindo a turma virtual do dia extra */
+export function mapaDeTurmas(turmas: Turma[]): Map<string, Turma> {
+  const mapa = new Map(turmas.map((t) => [t.id, t]));
+  mapa.set(TURMA_DIA_EXTRA, TURMA_VIRTUAL_DIA_EXTRA);
+  return mapa;
+}
+
+/** Link que leva o aluno direto para marcar presença nesta aula */
+export function linkPresencaDaAula(aulaId: string): string {
+  const origem = typeof window === "undefined" ? "" : window.location.origin;
+  return `${origem}/aluno?aula=${encodeURIComponent(aulaId)}`;
+}
 
 const presencaAtiva = (p: Presenca) => p.status === "confirmada";
 
-export type MotivoDayUse = "avulso" | "mensalidade_atrasada" | "outra_turma";
+export type MotivoDayUse = "avulso" | "mensalidade_atrasada" | "outra_turma" | "dia_extra";
 
 export type SituacaoPresenca =
   | { tipo: "confirmada"; presenca: Presenca; podeDesmarcar: boolean }
@@ -56,6 +90,9 @@ export function avaliarPresenca(
 
   const emAtraso = cobrancasEmAtraso(meusPagamentos);
   if (emAtraso.length) return { tipo: "bloqueada", emAtraso };
+
+  // Dia extra: todo mundo paga diária, mensalista ou não
+  if (ehDiaExtra(aula)) return { tipo: "day_use", motivo: "dia_extra", podeExperimental: false };
 
   const mensalidade = calcularSituacaoMensalidade(aluno);
   const ehMensalista = aluno.plano === "mensalista";

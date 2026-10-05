@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
-import { rotaInicialDoPerfil, useAutenticacao } from "@/contextos/ContextoAutenticacao";
+import { destinoAposLogin, useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { autenticacao } from "@/lib/autenticacao";
 import { firebaseAtivo } from "@/lib/firebase/configuracao";
@@ -39,7 +39,7 @@ export default function PaginaEntrar() {
 
   // Já logado? Vai direto para a área certa
   useEffect(() => {
-    if (!carregando && usuario) router.replace(rotaInicialDoPerfil(usuario));
+    if (!carregando && usuario) router.replace(destinoAposLogin(usuario));
   }, [carregando, usuario, router]);
 
   const enviar = async (evento: React.FormEvent) => {
@@ -50,7 +50,7 @@ export default function PaginaEntrar() {
     setEnviando(true);
     try {
       const perfil = await entrar(email, senha);
-      router.replace(rotaInicialDoPerfil(perfil));
+      router.replace(destinoAposLogin(perfil));
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível entrar");
       setEnviando(false);

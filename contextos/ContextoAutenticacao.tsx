@@ -23,6 +23,41 @@ export function rotaInicialDoPerfil(usuario: Usuario): string {
   return usuario.perfil === "professor" ? "/professor" : "/aluno";
 }
 
+/**
+ * Link aberto sem estar logado (ex.: link de presença enviado no WhatsApp):
+ * guardamos o endereço para voltar a ele depois do login/cadastro.
+ */
+const CHAVE_DESTINO = "arena3d:destino";
+
+export function guardarDestino(caminho: string) {
+  try {
+    window.sessionStorage.setItem(CHAVE_DESTINO, caminho);
+  } catch {
+    /* navegador sem sessionStorage: segue sem lembrar o destino */
+  }
+}
+
+/** Chamado quando o usuário já chegou na área logada */
+export function limparDestino() {
+  try {
+    window.sessionStorage.removeItem(CHAVE_DESTINO);
+  } catch {
+    /* ignora */
+  }
+}
+
+/** Para onde ir depois de entrar: o link guardado (se for da área do usuário) ou a tela inicial */
+export function destinoAposLogin(usuario: Usuario): string {
+  const inicial = rotaInicialDoPerfil(usuario);
+  try {
+    const guardado = window.sessionStorage.getItem(CHAVE_DESTINO);
+    if (guardado && guardado.startsWith(inicial) && !guardado.startsWith("//")) return guardado;
+  } catch {
+    /* ignora */
+  }
+  return inicial;
+}
+
 export function ProvedorAutenticacao({ children }: { children: React.ReactNode }) {
   const [uid, setUid] = useState<string | null | undefined>(undefined);
   const [usuarioCarregado, setUsuarioCarregado] = useState<{ uid: string; usuario: Usuario | null } | null>(null);

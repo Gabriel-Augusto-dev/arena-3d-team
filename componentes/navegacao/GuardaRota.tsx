@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { PerfilUsuario } from "@/tipos";
-import { rotaInicialDoPerfil, useAutenticacao } from "@/contextos/ContextoAutenticacao";
+import { guardarDestino, limparDestino, rotaInicialDoPerfil, useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { TelaAbertura } from "./TelaAbertura";
 
 /**
@@ -18,8 +18,13 @@ export function GuardaRota({ perfil, children }: { perfil: PerfilUsuario; childr
 
   useEffect(() => {
     if (carregando) return;
-    if (!usuario || !usuario.ativo) router.replace("/entrar");
+    if (!usuario || !usuario.ativo) {
+      // Guarda o link (ex.: presença do dia extra) para voltar a ele após o login
+      if (!usuario) guardarDestino(window.location.pathname + window.location.search);
+      router.replace("/entrar");
+    }
     else if (usuario.perfil !== perfil) router.replace(rotaInicialDoPerfil(usuario));
+    else limparDestino();
   }, [carregando, usuario, perfil, router]);
 
   if (carregando || !liberado) return <TelaAbertura />;

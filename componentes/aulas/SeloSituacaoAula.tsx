@@ -27,6 +27,6 @@ export function SeloSituacaoAula({ situacao, cobranca }: { situacao: SituacaoPre
     case "livre_mensalista":
       return null;
     case "day_use":
-      return <Selo tom="cinza">Day Use</Selo>;
+      return situacao.motivo === "dia_extra" ? <Selo tom="amarelo">Diária</Selo> : <Selo tom="cinza">Day Use</Selo>;
   }
 }

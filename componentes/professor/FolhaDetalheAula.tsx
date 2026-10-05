@@ -14,10 +14,11 @@ import { Avatar, Selo } from "@/componentes/interface/Elementos";
 import { aulaJaComecou, formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { ROTULOS_SITUACAO_COBRANCA } from "@/lib/rotulos";
-import { mensalistasSemPresenca, presencasDaAula, ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
+import { ehDiaExtra, mensalistasSemPresenca, presencasDaAula, ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { cancelarAula, reativarAula, removerPresenca } from "@/servicos/servicoAulas";
 import { confirmarPagamento } from "@/servicos/servicoPagamentos";
+import { CompartilharLinkAula } from "./CompartilharLinkAula";
 
 /** Lista de presença da aula, com a situação de pagamento de cada Day Use */
 export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFechar(): void }) {
@@ -35,12 +36,15 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
   const faltamMarcar = mensalistasSemPresenca(aula, presencas, alunos);
   const cancelada = aula.status === "cancelada";
   const jaComecou = aulaJaComecou(aula.data, aula.horarioInicio);
+  const diaExtra = ehDiaExtra(aula);
+  // No dia extra todos pagam diária, então ninguém conta como "mensalista sem custo"
+  const ehMensalistaSemCusto = (p: Presenca) => !diaExtra && alunoPorId.get(p.alunoId)?.plano === "mensalista";
   const pagamentoDe = (p: Presenca) => (p.pagamentoId ? pagamentos.find((x) => x.id === p.pagamentoId) : undefined);
 
   // Contagem das 4 situações: mensalista, a pagar, pago (aguardando conferência) e confirmado
   const contagem = { mensalista: 0, aPagar: 0, pago: 0, confirmado: 0 };
   for (const p of lista) {
-    if (alunoPorId.get(p.alunoId)?.plano === "mensalista") {
+    if (ehMensalistaSemCusto(p)) {
       contagem.mensalista++;
       continue;
     }
@@ -123,6 +127,15 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
           </p>
         )}
 
+        {diaExtra && !cancelada && !cancelando && (
+          <div className="flex flex-col gap-2">
+            <p className="rounded-2xl bg-alerta-fundo px-4 py-3 text-sm text-alerta">
+              <strong>Dia extra:</strong> todos pagam diária, inclusive mensalistas.
+            </p>
+            <CompartilharLinkAula aula={aula} />
+          </div>
+        )}
+
         {cancelando ? (
           <CampoTexto
             rotulo="Motivo (vai na notificação dos alunos)"
@@ -154,8 +167,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
               ) : (
                 <ul className="flex flex-col gap-1.5">
                   {lista.map((p) => {
-                    const aluno = alunoPorId.get(p.alunoId);
-                    const ehMensalista = aluno?.plano === "mensalista";
+                    const ehMensalista = ehMensalistaSemCusto(p);
                     return (
                       <LinhaPresenca
                         key={p.id}

@@ -8,6 +8,7 @@ import { adicionarDias, hojeISO, ordemNaSemana } from "@/lib/utilitarios/datas";
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { cobrancasEmAberto } from "@/servicos/regras/regrasPagamento";
 import { garantirAulasFuturas } from "@/servicos/servicoAulas";
+import { mapaDeTurmas } from "@/servicos/regras/regrasAula";
 
 /** Dados da área do professor, em tempo real */
 interface DadosProfessor {
@@ -60,7 +61,7 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
         const diaB = Math.min(...b.diasSemana.map(ordemNaSemana));
         return diaA - diaB || a.horarioInicio.localeCompare(b.horarioInicio);
       }),
-      turmaPorId: new Map(turmas.dados.map((t) => [t.id, t])),
+      turmaPorId: mapaDeTurmas(turmas.dados),
       aulas: [...aulas.dados].sort((a, b) => (a.data + a.horarioInicio).localeCompare(b.data + b.horarioInicio)),
       presencas: presencas.dados,
       pagamentos: listaPagamentos,

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { rotaInicialDoPerfil, useAutenticacao } from "@/contextos/ContextoAutenticacao";
+import { destinoAposLogin, useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { MolduraAcesso } from "@/componentes/navegacao/MolduraAcesso";
 import { Campo, CampoSenha } from "@/componentes/interface/Campos";
@@ -40,7 +40,7 @@ export default function PaginaCadastro() {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    if (!carregando && usuario) router.replace(rotaInicialDoPerfil(usuario));
+    if (!carregando && usuario) router.replace(destinoAposLogin(usuario));
   }, [carregando, usuario, router]);
 
   const alterar = (campo: keyof Formulario, valor: string) => {
@@ -62,7 +62,7 @@ export default function PaginaCadastro() {
     try {
       const perfil = await cadastrar({ ...dados, plano: plano!, turmaId: plano === "mensalista" ? dados.turmaId : null });
       avisos.sucesso("Conta criada! Bem-vindo à 3D Team");
-      router.replace(rotaInicialDoPerfil(perfil));
+      router.replace(destinoAposLogin(perfil));
     } catch (e) {
       avisos.erro(e);
       setEnviando(false);

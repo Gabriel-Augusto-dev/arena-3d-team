@@ -9,6 +9,7 @@ import { adicionarDias, hojeISO } from "@/lib/utilitarios/datas";
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { calcularSituacaoMensalidade, type SituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
 import { cobrancasEmAberto, cobrancasEmAtraso } from "@/servicos/regras/regrasPagamento";
+import { ehDiaExtra, mapaDeTurmas } from "@/servicos/regras/regrasAula";
 
 /**
  * Tudo que a área do aluno precisa, em tempo real.
@@ -49,7 +50,7 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
   const { configuracoes, carregando: carregandoConfig } = useConfiguracoes();
 
   const valor = useMemo<DadosAluno>(() => {
-    const turmaPorId = new Map(turmas.dados.map((t) => [t.id, t]));
+    const turmaPorId = mapaDeTurmas(turmas.dados);
     const meusPagamentos = [...pagamentos.dados].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
     return {
       aluno,
@@ -57,7 +58,8 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
       turmaPorId,
       minhaTurma: aluno.turmaId ? (turmaPorId.get(aluno.turmaId) ?? null) : null,
       aulas: aulas.dados
-        .filter((a) => a.data <= limite && turmaPorId.has(a.turmaId))
+        // Dia extra aparece mesmo que seja daqui a mais de 2 semanas
+        .filter((a) => (a.data <= limite || ehDiaExtra(a)) && turmaPorId.has(a.turmaId))
         .sort((a, b) => (a.data + a.horarioInicio).localeCompare(b.data + b.horarioInicio)),
       minhasPresencas: presencas.dados,
       meusPagamentos,

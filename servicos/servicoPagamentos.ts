@@ -4,6 +4,7 @@ import { formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { calcularNovoCiclo } from "./regras/regrasMensalidade";
 import { somaValores } from "./regras/regrasPagamento";
+import { ehDiaExtra, TURMA_VIRTUAL_DIA_EXTRA } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { operacaoNotificarAluno, operacaoNotificarProfessores } from "./servicoNotificacoes";
 
@@ -107,7 +108,7 @@ async function descreverAula(pagamento: Pagamento) {
   if (!pagamento.aulaId) return "aula";
   const aula = await banco.obter("aulas", pagamento.aulaId);
   if (!aula) return "aula";
-  const turma = await banco.obter("turmas", aula.turmaId);
+  const turma = ehDiaExtra(aula) ? TURMA_VIRTUAL_DIA_EXTRA : await banco.obter("turmas", aula.turmaId);
   return `${turma?.nome ?? "aula"} de ${formatarDataRelativa(aula.data).toLowerCase()}`;
 }
 

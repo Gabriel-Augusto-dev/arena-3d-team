@@ -2,6 +2,7 @@ import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Presenca, Turma, Usuario } from "@/tipos";
 import { adicionarDias, diaDaSemana, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { operacaoNotificarAluno } from "./servicoNotificacoes";
+import { TURMA_DIA_EXTRA } from "./regras/regrasAula";
 
 export const DIAS_AGENDA_AUTOMATICA = 21;
 
@@ -54,6 +55,30 @@ export async function criarAulaExtra(turma: Turma, data: string) {
   const id = idDaAula(turma.id, data);
   if (await banco.obter("aulas", id)) throw new Error("Já existe aula desta turma nesse dia");
   await banco.definir("aulas", id, montarAula(turma, data));
+}
+
+/**
+ * Dia extra: um treino fora da agenda, no dia que o professor quiser.
+ * Todos que marcarem presença pagam diária (inclusive mensalistas).
+ * Retorna o id da aula, para o professor copiar o link de presença.
+ */
+export async function criarDiaExtra(data: string, horarioInicio: string, horarioFim: string): Promise<string> {
+  if (!data) throw new Error("Escolha o dia");
+  if (data < hojeISO()) throw new Error("Escolha hoje ou um dia futuro");
+  if (!horarioInicio || !horarioFim) throw new Error("Informe o horário");
+  if (horarioFim <= horarioInicio) throw new Error("O horário de término precisa ser depois do início");
+  const id = idDaAula(TURMA_DIA_EXTRA, data);
+  const existente = await banco.obter("aulas", id);
+  if (existente && existente.status === "agendada") throw new Error("Já existe um dia extra nessa data");
+  await banco.definir("aulas", id, {
+    turmaId: TURMA_DIA_EXTRA,
+    data,
+    horarioInicio,
+    horarioFim,
+    status: "agendada",
+    motivoCancelamento: "",
+  });
+  return id;
 }
 
 /**
