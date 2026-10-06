@@ -17,6 +17,7 @@ function montarAula(turma: Turma, data: string): Omit<Aula, "id" | "criadoEm" | 
     status: "agendada",
     motivoCancelamento: "",
     responsavelId: turma.responsavelId ?? null,
+    responsavelNome: turma.responsavelNome ?? null,
   };
 }
 
@@ -68,6 +69,7 @@ export async function criarDiaExtra(
   horarioInicio: string,
   horarioFim: string,
   responsavelId: string | null = null,
+  responsavelNome: string | null = null,
 ): Promise<string> {
   if (!data) throw new Error("Escolha o dia");
   if (data < hojeISO()) throw new Error("Escolha hoje ou um dia futuro");
@@ -84,6 +86,7 @@ export async function criarDiaExtra(
     status: "agendada",
     motivoCancelamento: "",
     responsavelId,
+    responsavelNome,
   });
   return id;
 }

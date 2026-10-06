@@ -1,4 +1,5 @@
-import { Clock, MapPin } from "lucide-react";
+import { Clock, MapPin, UserRound } from "lucide-react";
+import { descreverQuadra, nomeDoProfessor } from "@/servicos/regras/regrasAula";
 import type { Aula, Turma } from "@/tipos";
 import { deDataISO, formatarDataRelativa, formatarDiaRelativo } from "@/lib/utilitarios/datas";
 
@@ -22,6 +23,8 @@ export function IngressoAula({
   const data = deDataISO(aula.data);
   const diaSemana = data.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", "");
   const mes = data.toLocaleDateString("pt-BR", { month: "short" }).replace(".", "");
+  const professor = nomeDoProfessor(aula, turma);
+  const quadra = descreverQuadra(turma?.local);
 
   return (
     <article
@@ -54,10 +57,16 @@ export function IngressoAula({
             <Clock className="size-4 text-laranja-400" />
             {aula.horarioInicio} – {aula.horarioFim}
           </span>
-          {turma?.local && (
+          {quadra && (
             <span className="inline-flex items-center gap-1.5">
               <MapPin className="size-4 text-laranja-400" />
-              {turma.local}
+              {quadra}
+            </span>
+          )}
+          {professor && (
+            <span className="inline-flex items-center gap-1.5">
+              <UserRound className="size-4 text-laranja-400" />
+              Prof. {professor}
             </span>
           )}
         </div>

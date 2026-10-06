@@ -1,7 +1,7 @@
 import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { formatarDataRelativa } from "@/lib/utilitarios/datas";
-import { avaliarPresenca } from "./regras/regrasAula";
+import { aulaDaSemana, avaliarPresenca } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { operacaoNotificarProfessores } from "./servicoNotificacoes";
 
@@ -23,6 +23,7 @@ async function conferir(aluno: Usuario, aula: Aula) {
     banco.obter("usuarios", aluno.id),
   ]);
   if (!aulaAtual) throw new Error("Esta aula não existe mais");
+  if (!aulaDaSemana(aulaAtual)) throw new Error("Só dá para marcar presença nas aulas desta semana");
   const situacao = avaliarPresenca(aulaAtual, alunoAtual ?? aluno, presencas, pagamentos, config);
 
   const aguardando =

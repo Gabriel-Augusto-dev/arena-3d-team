@@ -23,6 +23,7 @@ export async function salvarTurma(dados: DadosTurma, id?: string): Promise<Turma
             horarioFim: dados.horarioFim,
             // As próximas aulas passam para o novo responsável (as passadas ficam com quem deu)
             responsavelId: dados.responsavelId ?? null,
+            responsavelNome: dados.responsavelNome ?? null,
           },
         })),
       );

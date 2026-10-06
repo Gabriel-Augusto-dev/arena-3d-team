@@ -80,6 +80,8 @@ export interface Turma {
   ativa: boolean;
   /** Professor que dá a turma: uid do auxiliar, ou null = o próprio administrador */
   responsavelId?: string | null;
+  /** Nome do professor responsável (cópia, para o aluno ver sem ler cadastros da equipe) */
+  responsavelNome?: string | null;
   criadoEm: DataHoraISO;
   atualizadoEm: DataHoraISO;
 }
@@ -100,6 +102,8 @@ export interface Aula {
   motivoCancelamento: string;
   /** Quem dá a aula (copiado da turma; no dia extra, escolhido ao criar). null = administrador */
   responsavelId?: string | null;
+  /** Nome de quem dá a aula (cópia, para o aluno ver) */
+  responsavelNome?: string | null;
   criadoEm: DataHoraISO;
   atualizadoEm: DataHoraISO;
 }

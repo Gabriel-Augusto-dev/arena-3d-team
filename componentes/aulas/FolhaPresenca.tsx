@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck2, Clock, Hourglass, Lock, MapPin, Sparkles, Ticket, TriangleAlert, Users } from "lucide-react";
+import { CalendarCheck2, Clock, Hourglass, Lock, MapPin, Sparkles, Ticket, TriangleAlert, UserRound, Users } from "lucide-react";
 import type { AulaDoAluno } from "@/ganchos/useAgendaAluno";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao, BotaoLink } from "@/componentes/interface/Botao";
@@ -11,7 +11,7 @@ import { useAvisos } from "@/contextos/ContextoAvisos";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
-import { ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
+import { descreverQuadra, nomeDoProfessor, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
 import { desmarcarPresenca, marcarExperimental, marcarPresenca } from "@/servicos/servicoPresencas";
 import type { Pagamento } from "@/tipos";
@@ -149,10 +149,16 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
               <Clock className="size-4 text-marinho-500" />
               {aula.horarioInicio} às {aula.horarioFim}
             </span>
-            {turma?.local && (
+            {descreverQuadra(turma?.local) && (
               <span className="inline-flex items-center gap-1.5">
                 <MapPin className="size-4 text-marinho-500" />
-                {turma.local}
+                {descreverQuadra(turma?.local)}
+              </span>
+            )}
+            {nomeDoProfessor(aula, turma) && (
+              <span className="inline-flex items-center gap-1.5">
+                <UserRound className="size-4 text-marinho-500" />
+                Prof. {nomeDoProfessor(aula, turma)}
               </span>
             )}
             {turma && (

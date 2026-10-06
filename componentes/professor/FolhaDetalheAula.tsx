@@ -14,7 +14,14 @@ import { Avatar, Selo } from "@/componentes/interface/Elementos";
 import { aulaJaComecou, formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { ROTULOS_SITUACAO_COBRANCA } from "@/lib/rotulos";
-import { aulaEncerrada, ehDiaExtra, mensalistasSemPresenca, presencasDaAula, ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
+import {
+  aulaEncerrada,
+  descreverQuadra,
+  ehDiaExtra,
+  mensalistasSemPresenca,
+  presencasDaAula,
+  ROTULOS_TIPO_PRESENCA,
+} from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { cancelarAula, reativarAula, removerPresenca } from "@/servicos/servicoAulas";
 import { CompartilharLinkAula } from "./CompartilharLinkAula";
@@ -75,7 +82,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
       larga
       aoFechar={aoFechar}
       titulo={turma?.nome ?? "Aula"}
-      descricao={`${formatarDataExtenso(aula.data)}, ${aula.horarioInicio} às ${aula.horarioFim}${turma?.local ? ` · ${turma.local}` : ""}`}
+      descricao={`${formatarDataExtenso(aula.data)}, ${aula.horarioInicio} às ${aula.horarioFim}${turma?.local ? ` · ${descreverQuadra(turma.local)}` : ""}`}
       rodape={
         !ehAdministrador ? undefined : cancelada ? (
           <Botao

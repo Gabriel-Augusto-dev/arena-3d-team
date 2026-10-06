@@ -172,7 +172,7 @@ export default function InicioProfessor() {
 
 /** Professor cria um treino fora da agenda; todos que forem pagam diária */
 function FolhaDiaExtra({ aoFechar }: { aoFechar(): void }) {
-  const { aulas, configuracoes } = useDadosProfessor();
+  const { aulas, configuracoes, nomeResponsavel } = useDadosProfessor();
   const avisos = useAvisos();
   const [data, setData] = useState(hojeISO());
   const [inicio, setInicio] = useState("09:00");
@@ -185,7 +185,7 @@ function FolhaDiaExtra({ aoFechar }: { aoFechar(): void }) {
   const salvar = async () => {
     setSalvando(true);
     try {
-      setCriadaId(await criarDiaExtra(data, inicio, fim, responsavelId));
+      setCriadaId(await criarDiaExtra(data, inicio, fim, responsavelId, nomeResponsavel(responsavelId)));
     } catch (erro) {
       avisos.erro(erro);
     } finally {

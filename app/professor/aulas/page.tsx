@@ -17,7 +17,7 @@ import { Abas, EsqueletoLista, EstadoVazio, Selo, TituloPagina } from "@/compone
 import { adicionarDias, descreverDiasSemana, formatarDataExtenso, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
 import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
-import { presencasDaAula, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
+import { descreverQuadra, presencasDaAula, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { criarAulaExtra } from "@/servicos/servicoAulas";
 import { alternarTurmaAtiva, removerTurma } from "@/servicos/servicoTurmas";
 import type { Turma } from "@/tipos";
@@ -236,7 +236,7 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
               {turma.local && (
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="size-4 text-marinho-500" />
-                  {turma.local}
+                  {descreverQuadra(turma.local)}
                 </span>
               )}
             </div>

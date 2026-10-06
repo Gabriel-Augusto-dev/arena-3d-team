@@ -16,7 +16,7 @@ import { SeletorResponsavel } from "./SeletorResponsavel";
 const ORDEM_DIAS: DiaSemana[] = [1, 2, 3, 4, 5, 6, 0];
 
 export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFechar(): void }) {
-  const { configuracoes } = useDadosProfessor();
+  const { configuracoes, nomeResponsavel } = useDadosProfessor();
   const avisos = useAvisos();
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -50,7 +50,15 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
 
     setSalvando(true);
     try {
-      await salvarTurma({ ...dados, nome: dados.nome.trim(), local: dados.local.trim() }, turma?.id);
+      await salvarTurma(
+        {
+          ...dados,
+          nome: dados.nome.trim(),
+          local: dados.local.trim(),
+          responsavelNome: nomeResponsavel(dados.responsavelId ?? null),
+        },
+        turma?.id,
+      );
       const criadas = await garantirAulasFuturas();
       avisos.sucesso(
         turma ? "Turma atualizada" : `Turma criada${criadas ? ` com ${criadas} aulas na agenda` : ""}`,
@@ -84,7 +92,7 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
               </option>
             ))}
           </CampoSelecao>
-          <Campo rotulo="Local" placeholder="Quadra 1" value={dados.local} onChange={(e) => alterar("local", e.target.value)} />
+          <Campo rotulo="Quadra" placeholder="Ex.: 1 ou Quadra coberta" value={dados.local} onChange={(e) => alterar("local", e.target.value)} />
         </div>
 
         <SeletorResponsavel

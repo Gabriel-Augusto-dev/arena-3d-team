@@ -1,5 +1,5 @@
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
-import { aulaJaComecou } from "@/lib/utilitarios/datas";
+import { adicionarDias, aulaJaComecou, diaDaSemana, hojeISO } from "@/lib/utilitarios/datas";
 import { calcularSituacaoMensalidade } from "./regrasMensalidade";
 import { cobrancasQueBloqueiam } from "./regrasPagamento";
 
@@ -42,6 +42,29 @@ export function mapaDeTurmas(turmas: Turma[]): Map<string, Turma> {
   const mapa = new Map(turmas.map((t) => [t.id, t]));
   mapa.set(TURMA_DIA_EXTRA, TURMA_VIRTUAL_DIA_EXTRA);
   return mapa;
+}
+
+/**
+ * Último dia em que o aluno pode marcar presença: o domingo desta semana
+ * (semana de segunda a domingo). No domingo, só o próprio domingo.
+ */
+export function fimDaSemana(hoje: string = hojeISO()): string {
+  return adicionarDias(hoje, (7 - diaDaSemana(hoje)) % 7);
+}
+
+/** A aula está aberta para marcar presença? (semana atual; dia extra sempre) */
+export const aulaDaSemana = (aula: Pick<Aula, "data" | "turmaId">, hoje: string = hojeISO()) =>
+  ehDiaExtra(aula) || aula.data <= fimDaSemana(hoje);
+
+/** Local da turma para mostrar: só o número vira "Quadra 2" */
+export function descreverQuadra(local: string | undefined | null): string {
+  const texto = (local ?? "").trim();
+  return /^\d+$/.test(texto) ? `Quadra ${texto}` : texto;
+}
+
+/** Professor responsável pela aula (nome copiado na aula ou na turma) */
+export function nomeDoProfessor(aula: Pick<Aula, "responsavelNome">, turma: Pick<Turma, "responsavelNome"> | undefined) {
+  return aula.responsavelNome || turma?.responsavelNome || null;
 }
 
 /** Link que leva o aluno direto para marcar presença nesta aula */

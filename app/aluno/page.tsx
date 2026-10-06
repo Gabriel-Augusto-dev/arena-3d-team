@@ -50,15 +50,14 @@ function InicioAluno() {
   const proxima = ativas.find((a) => a.situacao.tipo === "confirmada");
   // Dias extras: aparecem para todos, mensalistas e avulsos (todos pagam diária)
   const diasExtras = ativas.filter((a) => ehDiaExtra(a.aula) && a.situacao.tipo !== "confirmada");
-  // Sugestões: aulas da turma do mensalista; para avulsos, as próximas aulas
-  const sugestoes = ativas
-    .filter(
-      (a) =>
-        !ehDiaExtra(a.aula) &&
-        a.situacao.tipo !== "confirmada" &&
-        (aluno.plano !== "mensalista" || a.ehDaMinhaTurma),
-    )
-    .slice(0, 3);
+  // Aulas desta semana (até domingo): da turma do mensalista; para avulsos, todas.
+  // As já marcadas continuam na lista (com o ✓), menos a que está no destaque
+  const sugestoes = ativas.filter(
+    (a) =>
+      !ehDiaExtra(a.aula) &&
+      a.aula.id !== proxima?.aula.id &&
+      (aluno.plano !== "mensalista" || a.ehDaMinhaTurma),
+  );
   const idAberto = abertaId ?? (linkValido && !carregando ? aulaDoLink : null);
   const aberta = agenda.find((a) => a.aula.id === idAberto);
   const fecharFolha = () => {
@@ -141,7 +140,9 @@ function InicioAluno() {
               </ul>
             ) : (
               <div className="rounded-3xl border-2 border-dashed border-linha bg-white/60 p-6 text-center">
-                <p className="text-[15px] text-suave">Nenhuma aula para marcar agora.</p>
+                <p className="text-[15px] text-suave">
+                  Nenhuma outra aula nesta semana. As da próxima semana abrem na segunda.
+                </p>
                 <BotaoLink href="/aluno/aulas" variante="secundario" tamanho="pequeno" icone={CalendarDays} className="mt-3">
                   Ver minhas presenças
                 </BotaoLink>

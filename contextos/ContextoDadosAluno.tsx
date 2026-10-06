@@ -9,7 +9,7 @@ import { adicionarDias, hojeISO } from "@/lib/utilitarios/datas";
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { calcularSituacaoMensalidade, type SituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
 import { cobrancasEmAberto, cobrancasEmAtraso } from "@/servicos/regras/regrasPagamento";
-import { ehDiaExtra, mapaDeTurmas } from "@/servicos/regras/regrasAula";
+import { aulaDaSemana, mapaDeTurmas } from "@/servicos/regras/regrasAula";
 
 /**
  * Tudo que a área do aluno precisa, em tempo real.
@@ -59,7 +59,6 @@ const substituir = <T extends ComVersao>(atuais: T[], novos: T[] = []) => [
 
 const ContextoDadosAluno = createContext<DadosAluno | null>(null);
 
-export const DIAS_AGENDA_ALUNO = 14;
 
 /** Histórico de pagamentos que o aluno vê no app */
 export const DIAS_HISTORICO_PAGAMENTOS = 365;
@@ -67,7 +66,6 @@ export const DIAS_HISTORICO_PAGAMENTOS = 365;
 export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) {
   const aluno = useUsuarioLogado();
   const hoje = hojeISO();
-  const limite = adicionarDias(hoje, DIAS_AGENDA_ALUNO);
 
   const turmas = useColecao("turmas", [onde("ativa", "==", true)]);
   const aulas = useColecao("aulas", [onde("data", ">=", hoje)]);
@@ -110,8 +108,8 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
       turmaPorId,
       minhaTurma: aluno.turmaId ? (turmaPorId.get(aluno.turmaId) ?? null) : null,
       aulas: aulas.dados
-        // Dia extra aparece mesmo que seja daqui a mais de 2 semanas
-        .filter((a) => (a.data <= limite || ehDiaExtra(a)) && turmaPorId.has(a.turmaId))
+        // Só a semana atual (até domingo). Dia extra aparece mesmo que seja mais para frente
+        .filter((a) => aulaDaSemana(a, hoje) && turmaPorId.has(a.turmaId))
         .sort((a, b) => (a.data + a.horarioInicio).localeCompare(b.data + b.horarioInicio)),
       minhasPresencas: mesclar(presencas.dados, locais.presencas),
       meusPagamentos,
@@ -139,7 +137,7 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
     pagamentosAbertos,
     configuracoes,
     carregandoConfig,
-    limite,
+    hoje,
     locais,
     registrarLocal,
   ]);

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useRef } from "react";
-import { onde } from "@/lib/banco";
+import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import { useColecao } from "@/ganchos/useColecao";
 import { useConfiguracoes } from "@/ganchos/useConfiguracoes";
 import { adicionarDias, hojeISO, ordemNaSemana } from "@/lib/utilitarios/datas";
@@ -14,6 +14,7 @@ import {
   alunosDoResponsavel,
   aulasDoResponsavel,
   pagamentosDoResponsavel,
+  responsavelDaAula,
   turmasDoResponsavel,
 } from "@/servicos/regras/regrasEquipe";
 import { useAutenticacao, useUsuarioLogado } from "./ContextoAutenticacao";
@@ -103,6 +104,55 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
       .catch(() => (agendaGarantida.current = false));
   }, [ehAdministrador]);
 
+  // Nome do professor responsável copiado nas turmas e nas próximas aulas, para o
+  // aluno ver quem dá a aula (o aluno não lê os cadastros da equipe).
+  // Só grava o que estiver faltando ou desatualizado.
+  const nomesGravando = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ehAdministrador || turmas.carregando || aulas.carregando || auxiliares.carregando) return;
+    const nomeAuxiliar = new Map(auxiliares.dados.map((a) => [a.id, a.nome]));
+    const nomeDe = (id: string | null) => (id ? (nomeAuxiliar.get(id) ?? null) : usuario.nome);
+    const mapa = mapaDeTurmas(turmas.dados);
+    const hoje = hojeISO();
+    const operacoes: OperacaoLote[] = [];
+    const ajustar = (colecao: "turmas" | "aulas", id: string, nome: string) => {
+      const chave = `${colecao}/${id}`;
+      if (nomesGravando.current.has(chave)) return;
+      nomesGravando.current.add(chave);
+      operacoes.push({ tipo: "atualizar", colecao, id, dados: { responsavelNome: nome } });
+    };
+
+    for (const turma of turmas.dados) {
+      const nome = nomeDe(turma.responsavelId ?? null);
+      if (nome && turma.responsavelNome !== nome) ajustar("turmas", turma.id, nome);
+    }
+    for (const aula of aulas.dados) {
+      if (aula.data < hoje || aula.status !== "agendada" || !mapa.has(aula.turmaId)) continue;
+      const nome = nomeDe(responsavelDaAula(aula, mapa));
+      if (!nome || aula.responsavelNome === nome) continue;
+      const turma = turmas.dados.find((t) => t.id === aula.turmaId);
+      // Aula normal com o mesmo professor da turma e sem nome próprio: o aluno já vê o da turma
+      const mesmoDaTurma = !!turma && responsavelDaAula(aula, mapa) === (turma.responsavelId ?? null);
+      if (mesmoDaTurma && !aula.responsavelNome) continue;
+      ajustar("aulas", aula.id, nome);
+    }
+    if (!operacoes.length) return;
+    const lote = operacoes.slice(0, 450);
+    banco
+      .lote(lote)
+      .catch((erro) => console.warn("[equipe] não deu para gravar o nome do professor:", erro))
+      .finally(() => lote.forEach((op) => nomesGravando.current.delete(`${op.colecao}/${op.id}`)));
+  }, [
+    ehAdministrador,
+    turmas.dados,
+    turmas.carregando,
+    aulas.dados,
+    aulas.carregando,
+    auxiliares.dados,
+    auxiliares.carregando,
+    usuario.nome,
+  ]);
+
   const valor = useMemo<DadosProfessor>(() => {
     const ordenarPorNome = (a: Usuario, b: Usuario) => a.nome.localeCompare(b.nome, "pt-BR");
     const todasTurmas = mapaDeTurmas(turmas.dados);
@@ -147,7 +197,8 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
       aReceber: cobrancasEmAberto(ordenados),
       configuracoes,
       auxiliares: [...auxiliares.dados].sort(ordenarPorNome),
-      nomeResponsavel: (id) => (id ? (auxiliarPorId.get(id)?.nome ?? "Auxiliar") : "Professor"),
+      nomeResponsavel: (id) =>
+        id ? (auxiliarPorId.get(id)?.nome ?? "Auxiliar") : ehAdministrador ? usuario.nome : "Professor",
       restrito,
       pagamentoVisivel: (p) =>
         !restrito ||
@@ -164,7 +215,7 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
         pagamentosRecentes.carregando ||
         carregandoConfig,
     };
-  }, [alunos, turmas, aulas, presencas, pagamentosAbertos, pagamentosRecentes, auxiliares, configuracoes, carregandoConfig, ehAdministrador, usuario.id]);
+  }, [alunos, turmas, aulas, presencas, pagamentosAbertos, pagamentosRecentes, auxiliares, configuracoes, carregandoConfig, ehAdministrador, usuario.id, usuario.nome]);
 
   return <ContextoDadosProfessor.Provider value={valor}>{children}</ContextoDadosProfessor.Provider>;
 }
