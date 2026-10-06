@@ -39,7 +39,7 @@ service cloud.firestore {
       return /databases/$(database)/documents/$(colecao)/$(id);
     }
 
-    // O aluno é associado? (campo pode não existir em cadastros antigos)
+    // Mensalista associado? (campo pode não existir em cadastros antigos)
     function ehAssociado() {
       return usuarioAtual().get('associado', false) == true;
     }
@@ -48,7 +48,7 @@ service cloud.firestore {
       return get(caminho('configuracoes', 'geral')).data;
     }
 
-    // Valor que o aluno paga: o de associado, quando ele é associado e o valor está definido (> 0)
+    // Mensalidade: a de associado, quando ele é associado e o valor está definido (> 0)
     function valorCerto(valor, normal, deAssociado) {
       return (ehAssociado() && deAssociado > 0 && valor == deAssociado)
         || (!(ehAssociado() && deAssociado > 0) && valor == normal);
@@ -167,11 +167,7 @@ service cloud.firestore {
           // Day Use: valor definido nos Ajustes, ligado à presença gravada no mesmo lote
           (request.resource.data.tipo == 'day_use'
             && request.resource.data.status == 'pendente'
-            && valorCerto(
-              request.resource.data.valor,
-              configuracoes().valorDayUse,
-              configuracoes().get('valorDayUseAssociado', 0)
-            )
+            && request.resource.data.valor == configuracoes().valorDayUse
             && request.resource.data.presencaId is string
             && getAfter(caminho('presencas', request.resource.data.presencaId)).data.alunoId == request.auth.uid
             && getAfter(caminho('presencas', request.resource.data.presencaId)).data.pagamentoId == id)

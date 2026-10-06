@@ -13,11 +13,21 @@ import { TONS_MENSALIDADE } from "@/lib/rotulos";
 import { contemTexto, formatarTelefone, somenteNumeros } from "@/lib/utilitarios/formatadores";
 import { calcularSituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
 import type { Usuario } from "@/tipos";
+import { onde } from "@/lib/banco";
+import { useColecao } from "@/ganchos/useColecao";
+import { adicionarDias, hojeISO } from "@/lib/utilitarios/datas";
+import { alunosDoResponsavel, aulasDoResponsavel, turmasDoResponsavel } from "@/servicos/regras/regrasEquipe";
 
 type Filtro = "todos" | "mensalistas" | "avulsos" | "em_dia" | "atrasados" | "inativos";
 
+/**
+ * Filtro por professor: mensalistas das turmas dele + quem treinou nas aulas
+ * dele nesses últimos dias
+ */
+const DIAS_ALUNOS_DO_PROFESSOR = 30;
+
 export default function AlunosProfessor() {
-  const { alunos, turmas, turmaPorId, carregando } = useDadosProfessor();
+  const { alunos, turmas, turmaPorId, auxiliares, carregando } = useDadosProfessor();
   // Cadastrar aluno é só do administrador
   const { ehAdministrador } = useAutenticacao();
   const [busca, setBusca] = useState("");
@@ -25,10 +35,28 @@ export default function AlunosProfessor() {
   const [turmaFiltro, setTurmaFiltro] = useState("");
   const [novo, setNovo] = useState(false);
   const [buscou, setBuscou] = useState(false);
+  // Administrador: alunos de um professor ("eu" ou o id do auxiliar). Vazio = todos
+  const [professorFiltro, setProfessorFiltro] = useState("");
+  const filtrandoProfessor = ehAdministrador && professorFiltro !== "";
+
+  // Só busca o histórico quando o filtro por professor está em uso
+  const inicioHistorico = adicionarDias(hojeISO(), -DIAS_ALUNOS_DO_PROFESSOR);
+  const aulasHistorico = useColecao("aulas", [onde("data", ">=", inicioHistorico)], filtrandoProfessor);
+  const presencasHistorico = useColecao("presencas", [onde("dataAula", ">=", inicioHistorico)], filtrandoProfessor);
+  const carregandoProfessor = filtrandoProfessor && (aulasHistorico.carregando || presencasHistorico.carregando);
+
+  const alunosVisiveis = useMemo(() => {
+    if (!filtrandoProfessor) return alunos;
+    const responsavelId = professorFiltro === "eu" ? null : professorFiltro;
+    const idsTurmas = new Set(turmasDoResponsavel(turmas, responsavelId).map((t) => t.id));
+    const idsAulas = new Set(aulasDoResponsavel(aulasHistorico.dados, turmaPorId, responsavelId).map((a) => a.id));
+    const presencas = presencasHistorico.dados.filter((p) => p.status === "confirmada" && idsAulas.has(p.aulaId));
+    return alunosDoResponsavel(alunos, idsTurmas, presencas);
+  }, [filtrandoProfessor, professorFiltro, alunos, turmas, turmaPorId, aulasHistorico.dados, presencasHistorico.dados]);
 
   const comSituacao = useMemo(
-    () => alunos.map((aluno) => ({ aluno, situacao: calcularSituacaoMensalidade(aluno) })),
-    [alunos],
+    () => alunosVisiveis.map((aluno) => ({ aluno, situacao: calcularSituacaoMensalidade(aluno) })),
+    [alunosVisiveis],
   );
 
   const regras: Record<Filtro, (a: (typeof comSituacao)[number]) => boolean> = {
@@ -94,6 +122,25 @@ export default function AlunosProfessor() {
             ))}
           </select>
         </div>
+        {ehAdministrador && auxiliares.length > 0 && (
+          <select
+            value={professorFiltro}
+            onChange={(e) => {
+              setProfessorFiltro(e.target.value);
+              setBuscou(true);
+            }}
+            aria-label="Filtrar por professor"
+            className="h-12 rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
+          >
+            <option value="">Todos os professores</option>
+            <option value="eu">Meus alunos</option>
+            {auxiliares.map((a) => (
+              <option key={a.id} value={a.id}>
+                Alunos de {a.nome}
+              </option>
+            ))}
+          </select>
+        )}
         <FichasFiltro<Filtro>
           opcoes={[
             { valor: "todos", rotulo: "Todos", contador: contar("todos") },
@@ -120,7 +167,7 @@ export default function AlunosProfessor() {
       </div>
 
       <div className="mt-5">
-        {!buscou ? null : carregando ? (
+        {!buscou ? null : carregando || carregandoProfessor ? (
           <EsqueletoLista linhas={5} />
         ) : lista.length ? (
           <ul className="grid gap-2 md:grid-cols-2">

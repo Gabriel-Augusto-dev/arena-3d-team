@@ -1,6 +1,5 @@
 "use client";
 
-import { valorDayUseDoAluno } from "@/servicos/regras/regrasPreco";
 import { useState } from "react";
 import { CalendarCheck2, Clock, Lock, MapPin, Sparkles, Ticket, TriangleAlert, Users } from "lucide-react";
 import type { AulaDoAluno } from "@/ganchos/useAgendaAluno";
@@ -55,7 +54,7 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
       },
     );
 
-  const valor = valorDayUseDoAluno(aluno, configuracoes);
+  const valor = configuracoes.valorDayUse;
   const cobrancaAtual = cobranca ?? meusPagamentos.find((p) => p.aulaId === aula.id && p.status === "pendente");
 
   if (pagar) return <FolhaPagarCobrancas cobrancas={pagar} aoFechar={aoFechar} />;
@@ -89,6 +88,12 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
       <Botao variante="destaque" tamanho="grande" larguraTotal carregando={enviando} onClick={marcar}>
         Marcar presença
       </Botao>
+    );
+  } else if (situacao.tipo === "mensalidade_pendente") {
+    rodape = (
+      <BotaoLink href="/aluno/pagamentos" variante="primario" tamanho="grande" larguraTotal>
+        Pagar mensalidade
+      </BotaoLink>
     );
   } else if (situacao.tipo === "bloqueada") {
     rodape = (
@@ -154,21 +159,6 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
 
           {situacao.tipo === "day_use" && (
             <div className="flex flex-col gap-3">
-              {situacao.motivo === "mensalidade_atrasada" && (
-                <div className="flex flex-col gap-3 rounded-2xl bg-alerta-fundo p-4 text-sm text-alerta">
-                  <p>
-                    <strong>
-                      {aluno.validadeMensalidade
-                        ? "Sua mensalidade está atrasada."
-                        : "Sua 1ª mensalidade ainda não foi paga."}
-                    </strong>{" "}
-                    Enquanto isso, a presença é cobrada como Day Use.
-                  </p>
-                  <BotaoLink href="/aluno/pagamentos" variante="secundario" tamanho="pequeno" className="self-start">
-                    Pagar mensalidade
-                  </BotaoLink>
-                </div>
-              )}
               {situacao.motivo === "dia_extra" && (
                 <div className="rounded-2xl bg-alerta-fundo p-4 text-sm text-alerta">
                   <strong>Dia extra.</strong> Este treino é fora da agenda: todos pagam diária, inclusive mensalistas.
@@ -199,6 +189,19 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                 />
               )}
             </div>
+          )}
+
+          {situacao.tipo === "mensalidade_pendente" && (
+            <Mensagem
+              icone={Lock}
+              tom="vermelho"
+              titulo="Presença bloqueada"
+              texto={
+                situacao.primeiroPagamento
+                  ? "Sua 1ª mensalidade ainda não foi paga. Pague para marcar presença."
+                  : "Sua mensalidade está atrasada. Pague para voltar a marcar presença."
+              }
+            />
           )}
 
           {situacao.tipo === "bloqueada" && (

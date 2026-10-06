@@ -26,7 +26,7 @@ export function BotaoPresenca({ item, aoAbrir }: { item: AulaDoAluno; aoAbrir():
       </span>
     );
   }
-  if (situacao.tipo === "bloqueada") {
+  if (situacao.tipo === "bloqueada" || situacao.tipo === "mensalidade_pendente") {
     return (
       <Botao variante="perigo" tamanho="pequeno" icone={Lock} onClick={aoAbrir}>
         Pagar

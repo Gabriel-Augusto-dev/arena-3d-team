@@ -46,7 +46,7 @@ export interface Usuario {
   validadeMensalidade: DataISO | null;
   /** A aula experimental gratuita só pode ser usada uma vez */
   usouExperimental: boolean;
-  /** Aluno associado: paga os valores de associado definidos em Ajustes */
+  /** Mensalista associado: paga a mensalidade de associado definida em Ajustes */
   associado?: boolean;
   ativo: boolean;
   observacoes: string;
@@ -225,9 +225,8 @@ export interface Configuracoes {
   cidadeRecebedorPix: string;
   valorDayUse: number;
   valorMensalidadePadrao: number;
-  /** Valores do aluno associado (0 = cobra o valor normal) */
+  /** Mensalidade do mensalista associado (0 = cobra o valor normal da turma) */
   valorMensalidadeAssociado: number;
-  valorDayUseAssociado: number;
   /** false = mensalista marca presença sem custo só na própria turma */
   mensalistaQualquerTurma: boolean;
   diasCicloMensalidade: number;

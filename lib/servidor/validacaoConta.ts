@@ -54,7 +54,7 @@ export function validarNovaConta(entrada: unknown): PerfilNovaConta {
     turmaId: turmaId || null,
     validadeMensalidade: validade || null,
     usouExperimental: dados.usouExperimental === true,
-    associado: dados.associado === true,
+    associado: plano === "mensalista" && dados.associado === true,
     ativo: dados.ativo !== false,
     observacoes: texto(dados.observacoes, 1000),
   };

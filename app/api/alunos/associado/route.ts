@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     const referencia = bancoAdmin().collection("usuarios").doc(alunoId);
     const dados = (await referencia.get()).data() as Omit<Usuario, "id"> | undefined;
     if (!dados || dados.perfil !== "aluno") throw new ErroHttp(404, "Aluno não encontrado");
+    if (associado && dados.plano !== "mensalista") throw new ErroHttp(400, "Associado é só para mensalista");
 
     if (usuario.perfil === "auxiliar" && !(await alunoEhDoAuxiliar({ ...dados, id: alunoId }, usuario.id))) {
       throw new ErroHttp(403, "Este aluno não é das suas turmas");

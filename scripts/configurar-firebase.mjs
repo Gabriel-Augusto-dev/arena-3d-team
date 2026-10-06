@@ -132,7 +132,6 @@ async function principal() {
       valorDayUse: 15,
       valorMensalidadePadrao: 160,
       valorMensalidadeAssociado: 0,
-      valorDayUseAssociado: 0,
       mensalistaQualquerTurma: false,
       diasCicloMensalidade: 30,
       whatsappContato: "",

@@ -152,7 +152,7 @@ export default function DetalheAluno() {
                   <Selo tom={aluno.plano === "mensalista" ? "escuro" : "azul"}>
                     {aluno.plano === "mensalista" ? "Mensalista" : "Avulso"}
                   </Selo>
-                  {aluno.associado && <Selo tom="verde">Associado</Selo>}
+                  {aluno.plano === "mensalista" && aluno.associado && <Selo tom="verde">Associado</Selo>}
                   {!aluno.ativo && <Selo tom="cinza">Inativo</Selo>}
                 </div>
               </div>
@@ -196,10 +196,12 @@ export default function DetalheAluno() {
                 <LinhaInfo rotulo="Turma" valor="Sem turma fixa" />
               )}
               <LinhaInfo rotulo="Experimental" valor={aluno.usouExperimental ? "Já usou" : "Disponível"} />
-              <div className="flex items-center justify-between gap-3 py-2.5">
-                <span className="text-[15px] text-suave">Associado</span>
-                <InterruptorAssociado aluno={aluno} />
-              </div>
+              {aluno.plano === "mensalista" && (
+                <div className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="text-[15px] text-suave">Associado</span>
+                  <InterruptorAssociado aluno={aluno} />
+                </div>
+              )}
               {ehAdministrador && <LinhaInfo rotulo="Total pago" valor={formatarMoeda(totalPago)} />}
             </dl>
             {turma && ehAdministrador && (

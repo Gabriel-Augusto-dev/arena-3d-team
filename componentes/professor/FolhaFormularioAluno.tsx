@@ -183,15 +183,17 @@ export function FolhaFormularioAluno({
 
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-3 font-titulo text-base font-bold">Outros</legend>
-          <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-linha/70">
-            <span className="block text-[15px] font-semibold">Associado</span>
-            <input
-              type="checkbox"
-              className="size-5 accent-marinho-600"
-              checked={!!dados.associado}
-              onChange={(e) => alterar("associado", e.target.checked)}
-            />
-          </label>
+          {dados.plano === "mensalista" && (
+            <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-linha/70">
+              <span className="block text-[15px] font-semibold">Associado</span>
+              <input
+                type="checkbox"
+                className="size-5 accent-marinho-600"
+                checked={!!dados.associado}
+                onChange={(e) => alterar("associado", e.target.checked)}
+              />
+            </label>
+          )}
           <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-linha/70">
             <span>
               <span className="block text-[15px] font-semibold">Aula experimental já usada</span>

@@ -166,6 +166,7 @@ Não existe limite de vagas. **Todo aluno marca presença** em cada aula que vai
 | Day Use: marca presença e gera uma cobrança (valor em Ajustes) | `servicos/servicoPresencas.ts` (`marcarPresenca`) |
 | Dia extra: treino fora da agenda, todos pagam diária (inclusive mensalistas) | `servicos/servicoAulas.ts` (`criarDiaExtra`) |
 | Day Use pago até a meia-noite do dia da aula; depois fica **em atraso** e **bloqueia** novas presenças | `servicos/regras/regrasPagamento.ts` |
+| Mensalista com a mensalidade atrasada (ou sem o 1º pagamento) **não marca presença** até pagar; avisar o PIX já libera enquanto o professor confere | `servicos/regras/regrasAula.ts` (`mensalidade_pendente`) |
 | Experimental gratuita, uma única vez | `servicoPresencas.ts` (`marcarExperimental`) |
 | Só o professor administrador confirma pagamentos | `servicos/servicoPagamentos.ts` + `firestore.rules` |
 | Mensalidade confirmada → novo ciclo de dias (Ajustes) | `servicos/regras/regrasMensalidade.ts` |

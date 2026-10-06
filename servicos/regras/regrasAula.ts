@@ -58,6 +58,8 @@ export type SituacaoPresenca =
   | { tipo: "aula_cancelada"; motivo: string }
   | { tipo: "encerrada" }
   | { tipo: "bloqueada"; emAtraso: Pagamento[] }
+  /** Mensalista com a mensalidade atrasada (ou sem o 1º pagamento): só marca depois de pagar */
+  | { tipo: "mensalidade_pendente"; primeiroPagamento: boolean }
   | { tipo: "livre_mensalista" }
   | { tipo: "day_use"; motivo: MotivoDayUse; podeExperimental: boolean };
 
@@ -91,19 +93,27 @@ export function avaliarPresenca(
   const emAtraso = cobrancasEmAtraso(meusPagamentos);
   if (emAtraso.length) return { tipo: "bloqueada", emAtraso };
 
+  // Mensalista com a mensalidade em aberto não marca presença até pagar.
+  // Se ele já avisou o PIX (em análise), fica liberado enquanto o professor confere.
+  const mensalidade = calcularSituacaoMensalidade(aluno);
+  const ehMensalista = aluno.plano === "mensalista";
+  const mensalidadeAvisada = meusPagamentos.some((p) => p.tipo === "mensalidade" && p.status === "em_analise");
+  const mensalidadeOk = mensalidade.acessoLiberado || mensalidadeAvisada;
+  if (ehMensalista && !mensalidadeOk) {
+    return { tipo: "mensalidade_pendente", primeiroPagamento: !aluno.validadeMensalidade };
+  }
+
   // Dia extra: todo mundo paga diária, mensalista ou não
   if (ehDiaExtra(aula)) return { tipo: "day_use", motivo: "dia_extra", podeExperimental: false };
 
-  const mensalidade = calcularSituacaoMensalidade(aluno);
-  const ehMensalista = aluno.plano === "mensalista";
   const turmaPermitida = configuracoes.mensalistaQualquerTurma || aluno.turmaId === aula.turmaId;
 
-  if (ehMensalista && mensalidade.acessoLiberado && turmaPermitida) return { tipo: "livre_mensalista" };
+  if (ehMensalista && mensalidadeOk && turmaPermitida) return { tipo: "livre_mensalista" };
 
   const experimentalEmAberto = minhasPresencas.some((p) => p.tipo === "experimental" && presencaAtiva(p));
   return {
     tipo: "day_use",
-    motivo: !ehMensalista ? "avulso" : !mensalidade.acessoLiberado ? "mensalidade_atrasada" : "outra_turma",
+    motivo: !ehMensalista ? "avulso" : "outra_turma",
     podeExperimental: !aluno.usouExperimental && !experimentalEmAberto,
   };
 }

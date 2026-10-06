@@ -28,7 +28,7 @@ function normalizar(dados: DadosAluno): DadosAluno {
     cpf: somenteNumeros(dados.cpf),
     whatsapp: somenteNumeros(dados.whatsapp),
     turmaId: dados.plano === "mensalista" ? dados.turmaId : null,
-    associado: !!dados.associado,
+    associado: dados.plano === "mensalista" && !!dados.associado,
     validadeMensalidade: dados.plano === "mensalista" ? dados.validadeMensalidade || null : dados.validadeMensalidade,
   };
 }
