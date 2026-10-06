@@ -26,6 +26,7 @@ function NavegacaoProfessor({ children }: { children: React.ReactNode }) {
         { rotulo: "Início", href: "/professor", icone: House },
         { rotulo: "Alunos", href: "/professor/alunos", icone: Users },
         { rotulo: "Aulas", href: "/professor/aulas?aba=agenda", icone: CalendarDays },
+        { rotulo: "Ganhos", href: "/professor/ganhos", icone: Wallet },
       ];
 
   return (

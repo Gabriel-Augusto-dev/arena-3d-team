@@ -1,5 +1,6 @@
 "use client";
 
+import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -47,7 +48,8 @@ import {
 import { calcularSituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
 import { ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
-import { alternarAlunoAtivo, reenviarAcesso } from "@/servicos/servicoAlunos";
+import { alternarAlunoAtivo, definirAssociado, reenviarAcesso } from "@/servicos/servicoAlunos";
+import type { Usuario } from "@/tipos";
 import type { ResultadoNovaConta } from "@/lib/autenticacao";
 import { confirmarPagamento } from "@/servicos/servicoPagamentos";
 
@@ -58,7 +60,7 @@ export default function DetalheAluno() {
   const professor = useUsuarioLogado();
   // O professor auxiliar vê a ficha e os pagamentos, mas não altera nada
   const { ehAdministrador } = useAutenticacao();
-  const { alunoPorId, turmaPorId, presencaVisivel, pagamentoVisivel, carregando } = useDadosProfessor();
+  const { alunoPorId, turmaPorId, presencaVisivel, pagamentoVisivel, configuracoes, carregando } = useDadosProfessor();
   const avisos = useAvisos();
   const [aba, setAba] = useState<Aba>("pagamentos");
   const [editando, setEditando] = useState(false);
@@ -150,6 +152,7 @@ export default function DetalheAluno() {
                   <Selo tom={aluno.plano === "mensalista" ? "escuro" : "azul"}>
                     {aluno.plano === "mensalista" ? "Mensalista" : "Avulso"}
                   </Selo>
+                  {aluno.associado && <Selo tom="verde">Associado</Selo>}
                   {!aluno.ativo && <Selo tom="cinza">Inativo</Selo>}
                 </div>
               </div>
@@ -186,13 +189,17 @@ export default function DetalheAluno() {
                 <>
                   <LinhaInfo rotulo="Turma" valor={turma.nome} />
                   <LinhaInfo rotulo="Horário" valor={`${descreverDiasSemana(turma.diasSemana)}, ${turma.horarioInicio}`} />
-                  <LinhaInfo rotulo="Valor" valor={formatarMoeda(turma.valorMensalidade)} />
+                  <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, turma, configuracoes))} />
                   <LinhaInfo rotulo="Válida até" valor={formatarData(aluno.validadeMensalidade)} />
                 </>
               ) : (
                 <LinhaInfo rotulo="Turma" valor="Sem turma fixa" />
               )}
               <LinhaInfo rotulo="Experimental" valor={aluno.usouExperimental ? "Já usou" : "Disponível"} />
+              <div className="flex items-center justify-between gap-3 py-2.5">
+                <span className="text-[15px] text-suave">Associado</span>
+                <InterruptorAssociado aluno={aluno} />
+              </div>
               {ehAdministrador && <LinhaInfo rotulo="Total pago" valor={formatarMoeda(totalPago)} />}
             </dl>
             {turma && ehAdministrador && (
@@ -324,5 +331,38 @@ export default function DetalheAluno() {
       {registrando && ehAdministrador && <FolhaRegistrarPagamento aluno={aluno} aoFechar={() => setRegistrando(false)} />}
       {acesso && <FolhaAcessoEnviado nome={aluno.nome} resultado={acesso} aoFechar={() => setAcesso(null)} />}
     </>
+  );
+}
+
+/** Liga/desliga "associado" (administrador: qualquer aluno; auxiliar: os dele) */
+function InterruptorAssociado({ aluno }: { aluno: Usuario }) {
+  const avisos = useAvisos();
+  const [salvando, setSalvando] = useState(false);
+  const alternar = async () => {
+    setSalvando(true);
+    try {
+      await definirAssociado(aluno, !aluno.associado);
+    } catch (erro) {
+      avisos.erro(erro);
+    } finally {
+      setSalvando(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={!!aluno.associado}
+      aria-label="Associado"
+      disabled={salvando}
+      onClick={alternar}
+      className={`relative h-7 w-12 shrink-0 rounded-full transition disabled:opacity-60 ${
+        aluno.associado ? "bg-ok" : "bg-marinho-100"
+      }`}
+    >
+      <span
+        className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${aluno.associado ? "left-6" : "left-1"}`}
+      />
+    </button>
   );
 }

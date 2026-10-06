@@ -2,6 +2,7 @@ import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { formatarDataRelativa } from "@/lib/utilitarios/datas";
 import { avaliarPresenca } from "./regras/regrasAula";
+import { valorDayUseDoAluno } from "./regras/regrasPreco";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { operacaoNotificarProfessores } from "./servicoNotificacoes";
 
@@ -34,7 +35,7 @@ async function conferir(aluno: Usuario, aula: Aula) {
   if (situacao.tipo !== "livre_mensalista" && situacao.tipo !== "day_use") {
     throw new Error(mensagens[situacao.tipo] ?? "Não foi possível marcar presença");
   }
-  return { situacao, config };
+  return { situacao, config, alunoAtual: alunoAtual ?? aluno };
 }
 
 function montarPresenca(aluno: Usuario, aula: Aula, tipo: Presenca["tipo"], pagamentoId: string | null): NovaPresenca {
@@ -56,7 +57,7 @@ function montarPresenca(aluno: Usuario, aula: Aula, tipo: Presenca["tipo"], paga
  * Retorna o pagamento criado (Day Use), para a tela oferecer o PIX.
  */
 export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<{ pagamentoId: string | null }> {
-  const { situacao, config } = await conferir(aluno, aula);
+  const { situacao, config, alunoAtual } = await conferir(aluno, aula);
   const presencaId = banco.novoId("presencas");
 
   if (situacao.tipo === "livre_mensalista") {
@@ -72,7 +73,7 @@ export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<{ paga
     alunoId: aluno.id,
     alunoNome: aluno.nome,
     tipo: "day_use",
-    valor: config.valorDayUse,
+    valor: valorDayUseDoAluno(alunoAtual, config),
     forma: "pix",
     status: "pendente",
     vencimento: aula.data,

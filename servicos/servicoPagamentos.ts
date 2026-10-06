@@ -7,6 +7,7 @@ import { somaValores } from "./regras/regrasPagamento";
 import { ehDiaExtra, TURMA_VIRTUAL_DIA_EXTRA } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { operacaoNotificarAluno, operacaoNotificarProfessores } from "./servicoNotificacoes";
+import { valorMensalidadeDoAluno } from "./regras/regrasPreco";
 
 /**
  * Fluxo:
@@ -64,6 +65,7 @@ export async function informarPagamentoDayUse(aluno: Usuario, cobrancas: Pagamen
 /** Aluno avisa que pagou a mensalidade via PIX */
 export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma, observacaoAluno = "") {
   const id = banco.novoId("pagamentos");
+  const valor = valorMensalidadeDoAluno(aluno, turma, await obterConfiguracoes());
   await banco.lote([
     {
       tipo: "definir",
@@ -71,7 +73,7 @@ export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma,
       id,
       dados: {
         ...pagamentoVazio(aluno),
-        valor: turma.valorMensalidade,
+        valor,
         turmaId: turma.id,
         informadoEm: new Date().toISOString(),
         observacaoAluno: observacaoAluno.trim(),
@@ -80,7 +82,7 @@ export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma,
     operacaoNotificarProfessores({
       tipo: "nova_solicitacao",
       titulo: "Mensalidade para conferir",
-      mensagem: `${aluno.nome} enviou ${formatarMoeda(turma.valorMensalidade)} (${turma.nome}).`,
+      mensagem: `${aluno.nome} enviou ${formatarMoeda(valor)} (${turma.nome}).`,
       link: "/professor/financeiro",
     }),
   ]);

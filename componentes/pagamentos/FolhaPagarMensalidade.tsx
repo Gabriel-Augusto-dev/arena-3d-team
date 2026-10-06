@@ -1,5 +1,6 @@
 "use client";
 
+import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { useState } from "react";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
@@ -66,7 +67,7 @@ export function FolhaPagarMensalidade({ aoFechar }: { aoFechar(): void }) {
         <div className="flex flex-col gap-4">
           <PainelPix
             configuracoes={configuracoes}
-            valor={minhaTurma.valorMensalidade}
+            valor={valorMensalidadeDoAluno(aluno, minhaTurma, configuracoes)}
             identificador={`MS${competencia(hojeISO()).replace("-", "")}${aluno.id.slice(0, 8)}`}
             descricao={`Mensalidade ${minhaTurma.nome}`}
           />

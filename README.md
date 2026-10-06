@@ -12,7 +12,17 @@ Existe **um único login**. Depois de entrar, o sistema lê o campo `perfil` do 
 | `auxiliar` | **Professor auxiliar** (trabalha para o administrador) | Vê alunos, turmas, aulas, a lista de presença e **se cada aluno já pagou**. Gera o link da lista de presença. Não confirma pagamentos, não vê o Financeiro nem os Ajustes, não cadastra/edita alunos ou turmas, não vê CPF |
 | `aluno` | Aluno | Marca presença, paga pelo PIX, acompanha mensalidade e histórico |
 
-O administrador cadastra o auxiliar em **Ajustes → Equipe**. O auxiliar recebe um e-mail para criar a senha. Para tirar o acesso, toque em **Desativar** (ele é deslogado na hora).
+O administrador cadastra o auxiliar na página **Equipe**. O auxiliar recebe um e-mail para criar a senha. Para tirar o acesso, toque em **Desativar** (ele é deslogado na hora).
+
+### Professor auxiliar: turmas, Ganhos e repasse
+
+- Cada turma (e cada dia extra) tem um **professor responsável**. O auxiliar vê só as turmas, aulas e alunos dele.
+- **Equipe** (administrador): aulas, presenças, alunos e valores confirmados de cada auxiliar por período, com a porcentagem de repasse.
+- **Ganhos** (auxiliar): o mesmo relatório das aulas dele, com o campo da porcentagem que ele recebe.
+
+### Aluno associado
+
+O associado paga os valores de associado definidos em **Ajustes** (mensalidade e Day Use; em branco = valor normal). O administrador marca qualquer aluno como associado (ficha do aluno ou Editar); o auxiliar só os alunos dele (o servidor confere).
 
 ## Rodando no computador
 

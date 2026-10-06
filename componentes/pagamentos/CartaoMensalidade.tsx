@@ -1,5 +1,6 @@
 "use client";
 
+import { valorDayUseDoAluno, valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { useState } from "react";
 import { CalendarClock, Hourglass } from "lucide-react";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
@@ -23,7 +24,7 @@ export function CartaoMensalidade() {
           <Selo tom="azul">Day Use</Selo>
         </div>
         <p className="mt-2 text-[15px] text-marinho-900/80">
-          Treine em qualquer aula por {formatarMoeda(configuracoes.valorDayUse)}
+          Treine em qualquer aula por {formatarMoeda(valorDayUseDoAluno(aluno, configuracoes))}
           {aluno.usouExperimental ? "." : ", ou faça sua aula experimental grátis."}
         </p>
         {configuracoes.whatsappContato && (
@@ -105,7 +106,7 @@ export function CartaoMensalidade() {
           className="mt-4"
           onClick={() => setPagando(true)}
         >
-          Pagar {formatarMoeda(minhaTurma.valorMensalidade)} via PIX
+          Pagar {formatarMoeda(valorMensalidadeDoAluno(aluno, minhaTurma, configuracoes))} via PIX
         </Botao>
       )}
 

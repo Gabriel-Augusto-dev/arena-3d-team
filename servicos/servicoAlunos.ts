@@ -1,5 +1,6 @@
 import { autenticacao, type DadosPerfilConta, type ResultadoNovaConta } from "@/lib/autenticacao";
 import { banco } from "@/lib/banco";
+import { chamarApi } from "@/lib/api/cliente";
 import type { Usuario } from "@/tipos";
 import { somenteNumeros } from "@/lib/utilitarios/formatadores";
 
@@ -14,6 +15,7 @@ export type DadosAluno = Pick<
   | "turmaId"
   | "validadeMensalidade"
   | "usouExperimental"
+  | "associado"
   | "ativo"
   | "observacoes"
 >;
@@ -26,6 +28,7 @@ function normalizar(dados: DadosAluno): DadosAluno {
     cpf: somenteNumeros(dados.cpf),
     whatsapp: somenteNumeros(dados.whatsapp),
     turmaId: dados.plano === "mensalista" ? dados.turmaId : null,
+    associado: !!dados.associado,
     validadeMensalidade: dados.plano === "mensalista" ? dados.validadeMensalidade || null : dados.validadeMensalidade,
   };
 }
@@ -67,4 +70,12 @@ export async function atualizarMeuPerfil(
     whatsapp: somenteNumeros(dados.whatsapp),
     dataNascimento: dados.dataNascimento,
   });
+}
+
+/**
+ * Marca/desmarca o aluno como associado. O administrador muda qualquer
+ * aluno; o professor auxiliar só os alunos dele (o servidor confere).
+ */
+export async function definirAssociado(aluno: Usuario, associado: boolean) {
+  await chamarApi("/api/alunos/associado", { alunoId: aluno.id, associado });
 }

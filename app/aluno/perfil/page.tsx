@@ -15,6 +15,7 @@ import { calcularIdade, formatarCpf, formatarMoeda, formatarTelefone, linkWhatsa
 import { validarTelefone } from "@/lib/utilitarios/validacoes";
 import { TONS_MENSALIDADE } from "@/lib/rotulos";
 import { ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
+import { valorDayUseDoAluno, valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { atualizarMeuPerfil } from "@/servicos/servicoAlunos";
 
 export default function PerfilAluno() {
@@ -80,7 +81,7 @@ export default function PerfilAluno() {
                     <LinhaInfo rotulo="Turma" valor={`${minhaTurma.nome} (${ROTULOS_NIVEL[minhaTurma.nivel]})`} />
                     <LinhaInfo rotulo="Dias" valor={descreverDiasSemana(minhaTurma.diasSemana)} />
                     <LinhaInfo rotulo="Horário" valor={`${minhaTurma.horarioInicio} às ${minhaTurma.horarioFim}`} />
-                    <LinhaInfo rotulo="Valor" valor={formatarMoeda(minhaTurma.valorMensalidade)} />
+                    <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, minhaTurma, configuracoes))} />
                     <LinhaInfo
                       rotulo="Situação"
                       valor={<Selo tom={TONS_MENSALIDADE[situacaoMensalidade.status]}>{situacaoMensalidade.rotulo}</Selo>}
@@ -88,7 +89,7 @@ export default function PerfilAluno() {
                     <LinhaInfo rotulo="Válida até" valor={formatarData(aluno.validadeMensalidade)} />
                   </>
                 ) : (
-                  <LinhaInfo rotulo="Day Use" valor={formatarMoeda(configuracoes.valorDayUse)} />
+                  <LinhaInfo rotulo="Day Use" valor={formatarMoeda(valorDayUseDoAluno(aluno, configuracoes))} />
                 )}
                 <LinhaInfo rotulo="Aula experimental" valor={aluno.usouExperimental ? "Já utilizada" : "Disponível"} />
               </dl>

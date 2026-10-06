@@ -39,6 +39,21 @@ service cloud.firestore {
       return /databases/$(database)/documents/$(colecao)/$(id);
     }
 
+    // O aluno é associado? (campo pode não existir em cadastros antigos)
+    function ehAssociado() {
+      return usuarioAtual().get('associado', false) == true;
+    }
+
+    function configuracoes() {
+      return get(caminho('configuracoes', 'geral')).data;
+    }
+
+    // Valor que o aluno paga: o de associado, quando ele é associado e o valor está definido (> 0)
+    function valorCerto(valor, normal, deAssociado) {
+      return (ehAssociado() && deAssociado > 0 && valor == deAssociado)
+        || (!(ehAssociado() && deAssociado > 0) && valor == normal);
+    }
+
     function ehDono(uid) {
       return logado() && request.auth.uid == uid;
     }
@@ -64,13 +79,14 @@ service cloud.firestore {
         )
         && request.resource.data.validadeMensalidade == null
         && request.resource.data.usouExperimental == false
+        && request.resource.data.get('associado', false) == false
         // a turma escolhida precisa existir e estar ativa
         && (request.resource.data.turmaId == null || get(caminho('turmas', request.resource.data.turmaId)).data.ativa == true)
       );
 
       allow update: if ehProfessor()
         // qualquer pessoa edita os próprios dados básicos
-        || (ehDono(uid) && soAltera(['nome', 'whatsapp', 'dataNascimento', 'atualizadoEm']))
+        || (ehDono(uid) && soAltera(['nome', 'whatsapp', 'dataNascimento', 'percentualProprio', 'atualizadoEm']))
         // aluno agenda / desmarca a aula experimental
         || (ehDono(uid) && ehAluno() && soAltera(['usouExperimental', 'atualizadoEm']));
 
@@ -151,7 +167,11 @@ service cloud.firestore {
           // Day Use: valor definido nos Ajustes, ligado à presença gravada no mesmo lote
           (request.resource.data.tipo == 'day_use'
             && request.resource.data.status == 'pendente'
-            && request.resource.data.valor == get(caminho('configuracoes', 'geral')).data.valorDayUse
+            && valorCerto(
+              request.resource.data.valor,
+              configuracoes().valorDayUse,
+              configuracoes().get('valorDayUseAssociado', 0)
+            )
             && request.resource.data.presencaId is string
             && getAfter(caminho('presencas', request.resource.data.presencaId)).data.alunoId == request.auth.uid
             && getAfter(caminho('presencas', request.resource.data.presencaId)).data.pagamentoId == id)
@@ -159,7 +179,11 @@ service cloud.firestore {
           || (request.resource.data.tipo == 'mensalidade'
             && request.resource.data.status == 'em_analise'
             && request.resource.data.turmaId == usuarioAtual().turmaId
-            && request.resource.data.valor == get(caminho('turmas', request.resource.data.turmaId)).data.valorMensalidade)
+            && valorCerto(
+              request.resource.data.valor,
+              get(caminho('turmas', request.resource.data.turmaId)).data.valorMensalidade,
+              configuracoes().get('valorMensalidadeAssociado', 0)
+            ))
         )
       );
 

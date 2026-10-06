@@ -44,6 +44,9 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
   const salvar = async () => {
     if (dados.valorDayUse <= 0) return avisos.erro("O valor do Day Use precisa ser maior que zero");
     if (dados.diasCicloMensalidade < 1) return avisos.erro("O ciclo precisa ter pelo menos 1 dia");
+    if (dados.valorMensalidadeAssociado < 0 || dados.valorDayUseAssociado < 0) {
+      return avisos.erro("Os valores não podem ser negativos");
+    }
     setSalvando(true);
     try {
       const chavePix = normalizarChavePix(dados.chavePix);
@@ -111,6 +114,24 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
                 value={dados.valorMensalidadePadrao}
                 onChange={(e) => alterar("valorMensalidadePadrao", Number(e.target.value))}
                 dica="Sugerido ao criar turmas"
+              />
+              <Campo
+                rotulo="Mensalidade associado (R$)"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={dados.valorMensalidadeAssociado || ""}
+                onChange={(e) => alterar("valorMensalidadeAssociado", Number(e.target.value) || 0)}
+              />
+              <Campo
+                rotulo="Day Use associado (R$)"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={dados.valorDayUseAssociado || ""}
+                onChange={(e) => alterar("valorDayUseAssociado", Number(e.target.value) || 0)}
               />
               <Campo
                 rotulo="Dias de cada ciclo"

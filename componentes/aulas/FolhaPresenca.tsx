@@ -1,5 +1,6 @@
 "use client";
 
+import { valorDayUseDoAluno } from "@/servicos/regras/regrasPreco";
 import { useState } from "react";
 import { CalendarCheck2, Clock, Lock, MapPin, Sparkles, Ticket, TriangleAlert, Users } from "lucide-react";
 import type { AulaDoAluno } from "@/ganchos/useAgendaAluno";
@@ -54,7 +55,7 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
       },
     );
 
-  const valor = configuracoes.valorDayUse;
+  const valor = valorDayUseDoAluno(aluno, configuracoes);
   const cobrancaAtual = cobranca ?? meusPagamentos.find((p) => p.aulaId === aula.id && p.status === "pendente");
 
   if (pagar) return <FolhaPagarCobrancas cobrancas={pagar} aoFechar={aoFechar} />;

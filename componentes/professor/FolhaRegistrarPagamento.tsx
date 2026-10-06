@@ -1,5 +1,6 @@
 "use client";
 
+import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { useState } from "react";
 import type { FormaPagamento, Usuario } from "@/tipos";
 import { useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
@@ -18,7 +19,9 @@ export function FolhaRegistrarPagamento({ aluno, aoFechar }: { aluno: Usuario; a
   const { turmaPorId, configuracoes } = useDadosProfessor();
   const avisos = useAvisos();
   const turma = aluno.turmaId ? turmaPorId.get(aluno.turmaId) : undefined;
-  const [valor, setValor] = useState(turma?.valorMensalidade ?? configuracoes.valorMensalidadePadrao);
+  const [valor, setValor] = useState(
+    turma ? valorMensalidadeDoAluno(aluno, turma, configuracoes) : configuracoes.valorMensalidadePadrao,
+  );
   const [forma, setForma] = useState<FormaPagamento>("dinheiro");
   const [salvando, setSalvando] = useState(false);
 
