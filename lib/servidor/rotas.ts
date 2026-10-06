@@ -21,7 +21,10 @@ export function tratarErro(erro: unknown): Response {
     return responder({ erro: erro.message }, 503);
   }
   console.error("[api] erro inesperado:", erro);
-  return responder({ erro: "Não foi possível concluir. Tente novamente" }, 500);
+  // Código do erro (ex.: do Firebase) ajuda a descobrir a causa sem expor detalhes
+  const codigo = (erro as { code?: unknown } | null)?.code;
+  const sufixo = typeof codigo === "string" || typeof codigo === "number" ? ` (código ${codigo})` : "";
+  return responder({ erro: `Não foi possível concluir. Tente novamente${sufixo}` }, 500);
 }
 
 export async function lerCorpo<T>(request: Request): Promise<Partial<T>> {

@@ -75,7 +75,10 @@ export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma,
     });
     return pagamentoId;
   } catch (erro) {
-    if (!(erro instanceof ErroApi) || (erro.status !== 503 && erro.status !== 404)) throw erro;
+    // Servidor indisponível ou com problema (sem credenciais, rota fora do ar, erro interno):
+    // grava pelo app mesmo, conferido pelas regras do Firestore
+    if (!(erro instanceof ErroApi) || (erro.status !== 404 && erro.status < 500)) throw erro;
+    console.warn("[pagamentos] servidor não gravou a mensalidade, gravando pelo app:", erro.message);
   }
 
   const id = banco.novoId("pagamentos");

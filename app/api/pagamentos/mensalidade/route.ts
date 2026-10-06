@@ -1,7 +1,7 @@
 import { bancoAdmin } from "@/lib/servidor/firebaseAdmin";
 import { ErroHttp, lerCorpo, responder, tratarErro, usuarioDaRequisicao } from "@/lib/servidor/rotas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
-import { gerarId, idNotificacao } from "@/lib/utilitarios/identificadores";
+import { idNotificacao } from "@/lib/utilitarios/identificadores";
 import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import type { Configuracoes, Notificacao, Pagamento, Turma } from "@/tipos";
 
@@ -24,11 +24,12 @@ export async function POST(request: Request) {
     const [turmaDoc, configDoc, emAnalise] = await Promise.all([
       db.collection("turmas").doc(aluno.turmaId).get(),
       db.collection("configuracoes").doc("geral").get(),
-      db.collection("pagamentos").where("alunoId", "==", aluno.id).where("status", "==", "em_analise").get(),
+      // Um filtro só (não depende de índice); o resto é filtrado aqui
+      db.collection("pagamentos").where("alunoId", "==", aluno.id).get(),
     ]);
     const turma = turmaDoc.data() as Turma | undefined;
     if (!turma) throw new ErroHttp(400, "Sua turma não foi encontrada. Fale com o professor");
-    if (emAnalise.docs.some((d) => d.data().tipo === "mensalidade")) {
+    if (emAnalise.docs.some((d) => d.data().tipo === "mensalidade" && d.data().status === "em_analise")) {
       throw new ErroHttp(409, "Você já avisou este pagamento. Aguarde o professor confirmar");
     }
 
@@ -38,7 +39,8 @@ export async function POST(request: Request) {
     });
 
     const agora = new Date().toISOString();
-    const pagamentoId = gerarId();
+    const referenciaPagamento = db.collection("pagamentos").doc();
+    const pagamentoId = referenciaPagamento.id;
     const pagamento: Omit<Pagamento, "id"> = {
       alunoId: aluno.id,
       alunoNome: aluno.nome,
@@ -72,7 +74,7 @@ export async function POST(request: Request) {
     };
 
     const lote = db.batch();
-    lote.set(db.collection("pagamentos").doc(pagamentoId), pagamento);
+    lote.set(referenciaPagamento, pagamento);
     lote.set(db.collection("notificacoes").doc(idNotificacao()), notificacao);
     await lote.commit();
 
