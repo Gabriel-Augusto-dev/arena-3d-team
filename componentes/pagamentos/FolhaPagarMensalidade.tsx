@@ -11,15 +11,14 @@ import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { informarPagamentoMensalidade } from "@/servicos/servicoPagamentos";
 import { competencia, hojeISO } from "@/lib/utilitarios/datas";
+import type { Turma } from "@/tipos";
 
-export function FolhaPagarMensalidade({ aoFechar }: { aoFechar(): void }) {
-  const { aluno, minhaTurma, configuracoes } = useDadosAluno();
+export function FolhaPagarMensalidade({ turma: minhaTurma, aoFechar }: { turma: Turma; aoFechar(): void }) {
+  const { aluno, configuracoes } = useDadosAluno();
   const avisos = useAvisos();
   const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(false);
-
-  if (!minhaTurma) return null;
 
   const enviar = async () => {
     setEnviando(true);
@@ -68,7 +67,7 @@ export function FolhaPagarMensalidade({ aoFechar }: { aoFechar(): void }) {
           <PainelPix
             configuracoes={configuracoes}
             valor={valorMensalidadeDoAluno(aluno, minhaTurma, configuracoes)}
-            identificador={`MS${competencia(hojeISO()).replace("-", "")}${aluno.id.slice(0, 8)}`}
+            identificador={`MS${competencia(hojeISO()).replace("-", "")}${aluno.id.slice(0, 5)}${minhaTurma.id.slice(0, 3)}`}
             descricao={`Mensalidade ${minhaTurma.nome}`}
           />
           <CampoTexto

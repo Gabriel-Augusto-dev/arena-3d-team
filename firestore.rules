@@ -6,7 +6,8 @@ rules_version = '2';
 //
 // Perfis (campo `perfil` do documento usuarios/{uid}):
 //   professor → administrador: pode tudo, é o único que confirma pagamentos
-//   auxiliar  → professor auxiliar: LÊ alunos, aulas, presenças e pagamentos; não altera nada
+//   auxiliar  → professor auxiliar: LÊ alunos, aulas, presenças e pagamentos; cria e
+//               edita só as PRÓPRIAS turmas (e as aulas delas); não mexe em dinheiro
 //   aluno     → só os próprios dados
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,6 +29,16 @@ service cloud.firestore {
     // Professor ou professor auxiliar (leitura da área da equipe)
     function ehEquipe() {
       return logado() && usuarioAtual().perfil in ['professor', 'auxiliar'] && usuarioAtual().ativo == true;
+    }
+
+    // Professor auxiliar com a conta ativa
+    function ehAuxiliar() {
+      return logado() && usuarioAtual().perfil == 'auxiliar' && usuarioAtual().ativo == true;
+    }
+
+    // A turma é do auxiliar logado?
+    function turmaDoAuxiliar(turmaId) {
+      return get(/databases/$(database)/documents/turmas/$(turmaId)).data.get('responsavelId', null) == request.auth.uid;
     }
 
     // Aluno com a conta ativa (as gravações do aluno passam por aqui)
@@ -78,6 +89,11 @@ service cloud.firestore {
           || (request.resource.data.plano == 'mensalista' && request.resource.data.turmaId is string)
         )
         && request.resource.data.validadeMensalidade == null
+        // mensalista de várias turmas: no cadastro, só a turma escolhida e sem validade
+        && (request.resource.data.get('turmasIds', []).size() == 0
+          || (request.resource.data.turmaId is string
+            && request.resource.data.get('turmasIds', []) == [request.resource.data.turmaId]))
+        && request.resource.data.get('validades', {}).size() == 0
         && request.resource.data.usouExperimental == false
         && request.resource.data.get('associado', false) == false
         // a turma escolhida precisa existir e estar ativa
@@ -95,14 +111,39 @@ service cloud.firestore {
 
     // ---------------- Turmas, aulas e configurações ----------------
     // Turmas e configurações são lidas também na tela de cadastro (antes do login)
+    // O auxiliar cria e edita só as turmas em que ele é o responsável.
+    // O preço da mensalidade é do administrador: o auxiliar cria com o valor padrão e não altera
     match /turmas/{id} {
       allow read: if true;
-      allow write: if ehProfessor();
+      allow create: if ehProfessor()
+        || (ehAuxiliar()
+          && request.resource.data.responsavelId == request.auth.uid
+          && request.resource.data.valorMensalidade == configuracoes().valorMensalidadePadrao);
+      allow update: if ehProfessor()
+        || (ehAuxiliar()
+          && resource.data.get('responsavelId', null) == request.auth.uid
+          && request.resource.data.responsavelId == request.auth.uid
+          && request.resource.data.valorMensalidade == resource.data.valorMensalidade);
+      allow delete: if ehProfessor()
+        || (ehAuxiliar() && resource.data.get('responsavelId', null) == request.auth.uid);
     }
 
+    // Aulas: o auxiliar só gera e ajusta as aulas das turmas dele (cancelar aula é do administrador)
     match /aulas/{id} {
       allow read: if logado();
-      allow write: if ehProfessor();
+      allow create: if ehProfessor()
+        || (ehAuxiliar()
+          && request.resource.data.responsavelId == request.auth.uid
+          && turmaDoAuxiliar(request.resource.data.turmaId)
+          && request.resource.data.status == 'agendada');
+      allow update: if ehProfessor()
+        || (ehAuxiliar()
+          && turmaDoAuxiliar(resource.data.turmaId)
+          && request.resource.data.turmaId == resource.data.turmaId
+          && request.resource.data.responsavelId == request.auth.uid
+          && request.resource.data.status == resource.data.status);
+      allow delete: if ehProfessor()
+        || (ehAuxiliar() && turmaDoAuxiliar(resource.data.turmaId));
     }
 
     match /configuracoes/{id} {
@@ -175,7 +216,9 @@ service cloud.firestore {
           // vale quando o servidor está sem as credenciais do Firebase Admin)
           || (request.resource.data.tipo == 'mensalidade'
             && request.resource.data.status == 'em_analise'
-            && request.resource.data.turmaId == usuarioAtual().turmaId
+            && request.resource.data.turmaId is string
+            && (request.resource.data.turmaId == usuarioAtual().get('turmaId', null)
+              || request.resource.data.turmaId in usuarioAtual().get('turmasIds', []))
             && valorCerto(
               request.resource.data.valor,
               get(caminho('turmas', request.resource.data.turmaId)).data.valorMensalidade,

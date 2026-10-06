@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { DiaSemana, NivelTurma, Turma } from "@/tipos";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
+import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
@@ -17,6 +18,9 @@ const ORDEM_DIAS: DiaSemana[] = [1, 2, 3, 4, 5, 6, 0];
 
 export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFechar(): void }) {
   const { configuracoes, nomeResponsavel } = useDadosProfessor();
+  // O auxiliar cria e edita só as turmas dele: o responsável é sempre ele mesmo
+  const { ehAdministrador } = useAutenticacao();
+  const eu = useUsuarioLogado();
   const avisos = useAvisos();
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
@@ -29,7 +33,7 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
     valorMensalidade: turma?.valorMensalidade ?? configuracoes.valorMensalidadePadrao,
     local: turma?.local ?? "",
     ativa: turma?.ativa ?? true,
-    responsavelId: turma?.responsavelId ?? null,
+    responsavelId: ehAdministrador ? (turma?.responsavelId ?? null) : eu.id,
   });
 
   const alterar = <C extends keyof DadosTurma>(campo: C, valor: DadosTurma[C]) => {
@@ -55,11 +59,11 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
           ...dados,
           nome: dados.nome.trim(),
           local: dados.local.trim(),
-          responsavelNome: nomeResponsavel(dados.responsavelId ?? null),
+          responsavelNome: ehAdministrador ? nomeResponsavel(dados.responsavelId ?? null) : eu.nome,
         },
         turma?.id,
       );
-      const criadas = await garantirAulasFuturas();
+      const criadas = await garantirAulasFuturas(undefined, ehAdministrador ? undefined : eu.id);
       avisos.sucesso(
         turma ? "Turma atualizada" : `Turma criada${criadas ? ` com ${criadas} aulas na agenda` : ""}`,
       );
@@ -95,15 +99,17 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
           <Campo rotulo="Quadra" placeholder="Ex.: 1 ou Quadra coberta" value={dados.local} onChange={(e) => alterar("local", e.target.value)} />
         </div>
 
-        <SeletorResponsavel
-          valor={dados.responsavelId ?? null}
-          aoMudar={(id) => alterar("responsavelId", id)}
-          dica={
-            turma
-              ? "Ao trocar, as próximas aulas passam para o novo responsável; as que já aconteceram não mudam"
-              : undefined
-          }
-        />
+        {ehAdministrador && (
+          <SeletorResponsavel
+            valor={dados.responsavelId ?? null}
+            aoMudar={(id) => alterar("responsavelId", id)}
+            dica={
+              turma
+                ? "Ao trocar, as próximas aulas passam para o novo responsável; as que já aconteceram não mudam"
+                : undefined
+            }
+          />
+        )}
 
         <fieldset>
           <legend className="mb-1.5 text-sm font-semibold">Dias da semana</legend>
@@ -140,6 +146,8 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
             value={dados.valorMensalidade}
             onChange={(e) => alterar("valorMensalidade", Number(e.target.value))}
             className="col-span-2"
+            disabled={!ehAdministrador}
+            dica={ehAdministrador ? undefined : "Valor definido pelo professor responsável pela arena"}
           />
         </div>
 

@@ -1,6 +1,7 @@
 import { bancoAdmin } from "@/lib/servidor/firebaseAdmin";
 import { ErroHttp, lerCorpo, responder, tratarErro, usuarioDaRequisicao } from "@/lib/servidor/rotas";
 import type { Aula, Turma, Usuario } from "@/tipos";
+import { matriculasDoAluno } from "@/servicos/regras/regrasMensalidade";
 
 /**
  * O aluno é "do" professor auxiliar quando é mensalista de uma turma dele
@@ -11,7 +12,9 @@ async function alunoEhDoAuxiliar(aluno: Usuario, auxiliarId: string): Promise<bo
   const responsavelDaTurma = async (turmaId: string) =>
     ((await db.collection("turmas").doc(turmaId).get()).data() as Turma | undefined)?.responsavelId ?? null;
 
-  if (aluno.turmaId && (await responsavelDaTurma(aluno.turmaId)) === auxiliarId) return true;
+  for (const { turmaId } of matriculasDoAluno(aluno)) {
+    if ((await responsavelDaTurma(turmaId)) === auxiliarId) return true;
+  }
 
   const presencas = await db.collection("presencas").where("alunoId", "==", aluno.id).get();
   const aulasIds = [...new Set(presencas.docs.map((d) => d.data().aulaId as string))].slice(0, 60);

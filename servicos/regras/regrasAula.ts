@@ -1,6 +1,6 @@
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { adicionarDias, aulaJaComecou, diaDaSemana, hojeISO } from "@/lib/utilitarios/datas";
-import { calcularSituacaoMensalidade } from "./regrasMensalidade";
+import { ehMensalistaDaTurma, matriculasDoAluno, situacaoDaValidade } from "./regrasMensalidade";
 import { cobrancasQueBloqueiam } from "./regrasPagamento";
 
 /**
@@ -118,25 +118,31 @@ export function avaliarPresenca(
   const bloqueios = cobrancasQueBloqueiam(meusPagamentos);
   if (bloqueios.emAtraso.length || bloqueios.emAnalise.length) return { tipo: "bloqueada", ...bloqueios };
 
-  // Mensalista com a mensalidade em aberto só marca presença depois que o
-  // professor confirmar o pagamento (o PIX avisado fica "em análise" e não libera).
-  const mensalidade = calcularSituacaoMensalidade(aluno);
-  const ehMensalista = aluno.plano === "mensalista";
-  const mensalidadeOk = mensalidade.acessoLiberado;
-  if (ehMensalista && !mensalidadeOk) {
+  // Mensalista de uma ou mais turmas: cada turma tem a própria mensalidade.
+  // Nas aulas de uma turma dele, só marca com a mensalidade DAQUELA turma em dia
+  // (o PIX avisado fica "em análise" e só libera quando o professor confirmar).
+  const matriculas = matriculasDoAluno(aluno);
+  const ehMensalista = matriculas.length > 0;
+  const daTurma = matriculas.find((m) => m.turmaId === aula.turmaId);
+  if (daTurma && !situacaoDaValidade(daTurma.validade).acessoLiberado) {
     return {
       tipo: "mensalidade_pendente",
-      primeiroPagamento: !aluno.validadeMensalidade,
-      emAnalise: meusPagamentos.some((p) => p.tipo === "mensalidade" && p.status === "em_analise"),
+      primeiroPagamento: !daTurma.validade,
+      emAnalise: meusPagamentos.some(
+        (p) => p.tipo === "mensalidade" && p.status === "em_analise" && (p.turmaId ?? aluno.turmaId) === aula.turmaId,
+      ),
     };
   }
 
   // Dia extra: todo mundo paga diária, mensalista ou não
   if (ehDiaExtra(aula)) return { tipo: "day_use", motivo: "dia_extra", podeExperimental: false };
 
-  const turmaPermitida = configuracoes.mensalistaQualquerTurma || aluno.turmaId === aula.turmaId;
+  if (daTurma) return { tipo: "livre_mensalista" };
 
-  if (ehMensalista && mensalidadeOk && turmaPermitida) return { tipo: "livre_mensalista" };
+  // Aula de outra turma (ex.: de outro professor): Day Use, a não ser que o
+  // professor libere nos Ajustes que mensalista em dia vai em qualquer turma
+  const algumaEmDia = matriculas.some((m) => situacaoDaValidade(m.validade).acessoLiberado);
+  if (algumaEmDia && configuracoes.mensalistaQualquerTurma) return { tipo: "livre_mensalista" };
 
   const experimentalEmAberto = minhasPresencas.some((p) => p.tipo === "experimental" && presencaAtiva(p));
   return {
@@ -157,7 +163,7 @@ export function presencasDaAula(aula: Aula, presencas: Presenca[]): Presenca[] {
 export function mensalistasSemPresenca(aula: Aula, presencas: Presenca[], alunos: Usuario[]): Usuario[] {
   const marcaram = new Set(presencasDaAula(aula, presencas).map((p) => p.alunoId));
   return alunos.filter(
-    (a) => a.ativo && a.plano === "mensalista" && a.turmaId === aula.turmaId && !marcaram.has(a.id),
+    (a) => a.ativo && ehMensalistaDaTurma(a, aula.turmaId) && !marcaram.has(a.id),
   );
 }
 

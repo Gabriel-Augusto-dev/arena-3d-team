@@ -1,9 +1,8 @@
 "use client";
 
-import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { useState } from "react";
 import { CalendarClock, Hourglass } from "lucide-react";
-import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
+import { useDadosAluno, type MensalidadeDoAluno } from "@/contextos/ContextoDadosAluno";
 import { Selo } from "@/componentes/interface/Elementos";
 import { Botao } from "@/componentes/interface/Botao";
 import { TONS_MENSALIDADE } from "@/lib/rotulos";
@@ -11,12 +10,11 @@ import { descreverDiasSemana, formatarDataHora } from "@/lib/utilitarios/datas";
 import { formatarMoeda, linkWhatsapp } from "@/lib/utilitarios/formatadores";
 import { FolhaPagarMensalidade } from "./FolhaPagarMensalidade";
 
-/** Situação da mensalidade do aluno + botão de pagar */
+/** Situação das mensalidades do aluno (uma por turma) + botão de pagar */
 export function CartaoMensalidade() {
-  const { aluno, minhaTurma, situacaoMensalidade: s, mensalidadeEmAnalise, configuracoes } = useDadosAluno();
-  const [pagando, setPagando] = useState(false);
+  const { aluno, mensalidades, configuracoes } = useDadosAluno();
 
-  if (aluno.plano !== "mensalista" || !minhaTurma) {
+  if (!mensalidades.length) {
     return (
       <div className="rounded-3xl bg-areia-100 p-5">
         <div className="flex items-center justify-between">
@@ -41,6 +39,20 @@ export function CartaoMensalidade() {
     );
   }
 
+  return (
+    <div className="flex flex-col gap-4">
+      {mensalidades.map((item) => (
+        <CartaoUmaMensalidade key={item.turma.id} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function CartaoUmaMensalidade({ item }: { item: MensalidadeDoAluno }) {
+  const { configuracoes } = useDadosAluno();
+  const [pagando, setPagando] = useState(false);
+  const { turma: minhaTurma, situacao: s, emAnalise: mensalidadeEmAnalise, valor } = item;
+
   const progresso =
     s.diasRestantes !== null && s.diasRestantes >= 0
       ? Math.min(100, Math.round((s.diasRestantes / configuracoes.diasCicloMensalidade) * 100))
@@ -50,7 +62,7 @@ export function CartaoMensalidade() {
   return (
     <div className={`rounded-3xl p-5 ${s.status === "atrasada" || s.status === "sem_pagamento" ? "bg-erro-fundo" : "bg-white ring-1 ring-linha/70"}`}>
       <div className="flex items-center justify-between gap-3">
-        <p className="font-titulo text-lg font-bold">Mensalidade</p>
+        <p className="font-titulo text-lg font-bold">Mensalidade · {minhaTurma.nome}</p>
         {mensalidadeEmAnalise ? (
           <Selo tom="amarelo" ponto>
             Em análise
@@ -63,7 +75,8 @@ export function CartaoMensalidade() {
       </div>
 
       <p className="mt-1 text-sm text-suave">
-        {minhaTurma.nome}, {descreverDiasSemana(minhaTurma.diasSemana).toLowerCase()} às {minhaTurma.horarioInicio}
+        {descreverDiasSemana(minhaTurma.diasSemana)} às {minhaTurma.horarioInicio}
+        {minhaTurma.responsavelNome ? ` · Prof. ${minhaTurma.responsavelNome}` : ""}
       </p>
 
       {s.diasRestantes !== null && s.diasRestantes >= 0 && (
@@ -106,11 +119,11 @@ export function CartaoMensalidade() {
           className="mt-4"
           onClick={() => setPagando(true)}
         >
-          Pagar {formatarMoeda(valorMensalidadeDoAluno(aluno, minhaTurma, configuracoes))} via PIX
+          Pagar {formatarMoeda(valor)} via PIX
         </Botao>
       )}
 
-      {pagando && <FolhaPagarMensalidade aoFechar={() => setPagando(false)} />}
+      {pagando && <FolhaPagarMensalidade turma={minhaTurma} aoFechar={() => setPagando(false)} />}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { chamarApi, ErroApi } from "@/lib/api/cliente";
 import type { FormaPagamento, Pagamento, Turma, Usuario } from "@/tipos";
 import { formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
-import { calcularNovoCiclo } from "./regras/regrasMensalidade";
+import { calcularNovoCiclo, camposDasMatriculas, matriculasDoAluno } from "./regras/regrasMensalidade";
 import { somaValores } from "./regras/regrasPagamento";
 import { ehDiaExtra, TURMA_VIRTUAL_DIA_EXTRA } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
@@ -72,6 +72,7 @@ export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma,
   try {
     const { pagamentoId } = await chamarApi<{ pagamentoId: string }>("/api/pagamentos/mensalidade", {
       observacaoAluno,
+      turmaId: turma.id,
     });
     return pagamentoId;
   } catch (erro) {
@@ -106,17 +107,30 @@ export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma,
   return id;
 }
 
-/** Gravações que abrem um novo ciclo de mensalidade */
-async function operacoesNovoCiclo(aluno: Usuario, pagamentoId: string) {
+/** Gravações que abrem um novo ciclo da mensalidade de uma turma */
+async function operacoesNovoCiclo(aluno: Usuario, pagamentoId: string, turmaId: string | null) {
   const config = await obterConfiguracoes();
-  const ciclo = calcularNovoCiclo(aluno.validadeMensalidade, config.diasCicloMensalidade);
+  const idTurma = turmaId ?? aluno.turmaId;
+  const matriculas = matriculasDoAluno(aluno);
+  const atual = idTurma ? matriculas.find((m) => m.turmaId === idTurma) : undefined;
+  const ciclo = calcularNovoCiclo(atual?.validade ?? null, config.diasCicloMensalidade);
+  // Pagou a mensalidade de uma turma em que ainda não estava: passa a ser mensalista dela
+  const novas = atual
+    ? matriculas.map((m) => (m.turmaId === idTurma ? { ...m, validade: ciclo.cicloFim } : m))
+    : [...matriculas, ...(idTurma ? [{ turmaId: idTurma, validade: ciclo.cicloFim }] : [])];
+  const turma = idTurma ? await banco.obter("turmas", idTurma) : null;
   const operacoes: OperacaoLote[] = [
-    { tipo: "atualizar", colecao: "usuarios", id: aluno.id, dados: { validadeMensalidade: ciclo.cicloFim } },
+    {
+      tipo: "atualizar",
+      colecao: "usuarios",
+      id: aluno.id,
+      dados: { plano: "mensalista", ...camposDasMatriculas(novas) },
+    },
     { tipo: "atualizar", colecao: "pagamentos", id: pagamentoId, dados: ciclo },
     operacaoNotificarAluno(aluno.id, {
       tipo: "pagamento_confirmado",
       titulo: "Mensalidade confirmada",
-      mensagem: `Pagamento recebido! Mensalidade válida até ${formatarData(ciclo.cicloFim)}.`,
+      mensagem: `Pagamento recebido! Mensalidade${turma ? ` da turma ${turma.nome}` : ""} válida até ${formatarData(ciclo.cicloFim)}.`,
       link: "/aluno/pagamentos",
     }),
   ];
@@ -157,7 +171,7 @@ export async function confirmarPagamento(pagamento: Pagamento, professorId: stri
   if (pagamento.tipo === "mensalidade") {
     const aluno = await banco.obter("usuarios", pagamento.alunoId);
     if (!aluno) throw new Error("Aluno não encontrado");
-    operacoes.push(...(await operacoesNovoCiclo(aluno, pagamento.id)));
+    operacoes.push(...(await operacoesNovoCiclo(aluno, pagamento.id, pagamento.turmaId)));
   } else {
     operacoes.push(
       operacaoNotificarAluno(pagamento.alunoId, {
@@ -228,6 +242,6 @@ export async function registrarMensalidadeRecebida(
         confirmadoEm: new Date().toISOString(),
       },
     },
-    ...(await operacoesNovoCiclo(aluno, id)),
+    ...(await operacoesNovoCiclo(aluno, id, turma.id)),
   ]);
 }

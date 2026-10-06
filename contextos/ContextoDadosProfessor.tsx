@@ -78,13 +78,14 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
   const auxiliares = useColecao("usuarios", [onde("perfil", "==", "auxiliar")]);
   const { configuracoes, carregando: carregandoConfig } = useConfiguracoes();
 
-  // Mantém a agenda das próximas semanas sempre criada (só o administrador grava aulas)
+  // Mantém a agenda das próximas semanas sempre criada: o administrador gera de
+  // todas as turmas; o auxiliar, só das turmas dele
   const agendaGarantida = useRef(false);
   useEffect(() => {
-    if (!ehAdministrador || agendaGarantida.current) return;
+    if (agendaGarantida.current) return;
     agendaGarantida.current = true;
     // Uma vez por dia neste aparelho basta (criar/editar turma já monta a agenda na hora)
-    const chave = "arena3d:agenda-garantida";
+    const chave = ehAdministrador ? "arena3d:agenda-garantida" : `arena3d:agenda-garantida:${usuario.id}`;
     const hoje = hojeISO();
     let jaFeito = false;
     try {
@@ -93,7 +94,10 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
       /* navegador sem localStorage: garante de novo */
     }
     if (jaFeito) return;
-    Promise.all([garantirConfiguracoes(), garantirAulasFuturas()])
+    const tarefas = ehAdministrador
+      ? Promise.all([garantirConfiguracoes(), garantirAulasFuturas()])
+      : garantirAulasFuturas(undefined, usuario.id);
+    tarefas
       .then(() => {
         try {
           window.localStorage.setItem(chave, hoje);
@@ -102,7 +106,7 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
         }
       })
       .catch(() => (agendaGarantida.current = false));
-  }, [ehAdministrador]);
+  }, [ehAdministrador, usuario.id]);
 
   // Nome do professor responsável copiado nas turmas e nas próximas aulas, para o
   // aluno ver quem dá a aula (o aluno não lê os cadastros da equipe).

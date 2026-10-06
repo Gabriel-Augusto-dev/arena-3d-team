@@ -38,7 +38,12 @@ export async function alternarTurmaAtiva(turma: Turma) {
 }
 
 export async function removerTurma(turma: Turma) {
-  const vinculados = await banco.listar("usuarios", [onde("turmaId", "==", turma.id)]);
+  // Mensalistas da turma (principal ou uma das turmas do aluno)
+  const [principal, outras] = await Promise.all([
+    banco.listar("usuarios", [onde("turmaId", "==", turma.id)]),
+    banco.listar("usuarios", [onde("turmasIds", "array-contains", turma.id)]),
+  ]);
+  const vinculados = [...new Set([...principal, ...outras].map((u) => u.id))];
   if (vinculados.length) {
     throw new Error(`Ainda há ${vinculados.length} aluno(s) nesta turma. Mude-os de turma antes de excluir`);
   }

@@ -1,5 +1,6 @@
 import type { Usuario } from "@/tipos";
 import { ErroHttp } from "./rotas";
+import { camposDasMatriculas } from "@/servicos/regras/regrasMensalidade";
 
 const texto = (valor: unknown, maximo = 200) => (typeof valor === "string" ? valor.trim().slice(0, maximo) : "");
 const numeros = (valor: unknown) => texto(valor, 40).replace(/\D/g, "");
@@ -32,6 +33,8 @@ export function validarNovaConta(entrada: unknown): PerfilNovaConta {
       plano: "avulso",
       turmaId: null,
       validadeMensalidade: null,
+      turmasIds: [],
+      validades: {},
       usouExperimental: true,
       ativo: true,
       observacoes: "",
@@ -39,9 +42,21 @@ export function validarNovaConta(entrada: unknown): PerfilNovaConta {
   }
 
   const plano = dados.plano === "mensalista" ? "mensalista" : "avulso";
-  const turmaId = plano === "mensalista" ? texto(dados.turmaId, 100) : "";
-  if (plano === "mensalista" && !turmaId) throw new ErroHttp(400, "Escolha a turma do mensalista");
-  const validade = dataOuVazio(dados.validadeMensalidade);
+  // Mensalista pode ter mais de uma turma, cada uma com a validade da sua mensalidade
+  const ids = [dados.turmaId, ...(Array.isArray(dados.turmasIds) ? dados.turmasIds : [])]
+    .map((id) => texto(id, 100))
+    .filter((id, i, lista) => id && lista.indexOf(id) === i)
+    .slice(0, 10);
+  const validadesRecebidas = (dados.validades ?? {}) as Record<string, unknown>;
+  const matriculas =
+    plano === "mensalista"
+      ? ids.map((turmaId, i) => ({
+          turmaId,
+          validade:
+            dataOuVazio(validadesRecebidas[turmaId]) || (i === 0 ? dataOuVazio(dados.validadeMensalidade) : "") || null,
+        }))
+      : [];
+  if (plano === "mensalista" && !matriculas.length) throw new ErroHttp(400, "Escolha a turma do mensalista");
 
   return {
     perfil,
@@ -51,8 +66,7 @@ export function validarNovaConta(entrada: unknown): PerfilNovaConta {
     dataNascimento: dataOuVazio(dados.dataNascimento),
     whatsapp: numeros(dados.whatsapp),
     plano,
-    turmaId: turmaId || null,
-    validadeMensalidade: validade || null,
+    ...camposDasMatriculas(matriculas),
     usouExperimental: dados.usouExperimental === true,
     associado: plano === "mensalista" && dados.associado === true,
     ativo: dados.ativo !== false,

@@ -3,6 +3,7 @@ import { banco } from "@/lib/banco";
 import { chamarApi } from "@/lib/api/cliente";
 import type { Usuario } from "@/tipos";
 import { somenteNumeros } from "@/lib/utilitarios/formatadores";
+import { camposDasMatriculas, matriculasDoAluno } from "./regras/regrasMensalidade";
 
 export type DadosAluno = Pick<
   Usuario,
@@ -14,6 +15,8 @@ export type DadosAluno = Pick<
   | "plano"
   | "turmaId"
   | "validadeMensalidade"
+  | "turmasIds"
+  | "validades"
   | "usouExperimental"
   | "associado"
   | "ativo"
@@ -21,15 +24,20 @@ export type DadosAluno = Pick<
 >;
 
 function normalizar(dados: DadosAluno): DadosAluno {
+  const mensalista = dados.plano === "mensalista";
+  // Turmas do mensalista (pode ser mais de uma) com a validade de cada mensalidade
+  const matriculas = mensalista
+    ? matriculasDoAluno({ ...dados, plano: "mensalista" }).map((m) => ({ ...m, validade: m.validade || null }))
+    : [];
+  if (mensalista && !matriculas.length) throw new Error("Escolha pelo menos uma turma do mensalista");
   return {
     ...dados,
     nome: dados.nome.trim(),
     email: dados.email.trim().toLowerCase(),
     cpf: somenteNumeros(dados.cpf),
     whatsapp: somenteNumeros(dados.whatsapp),
-    turmaId: dados.plano === "mensalista" ? dados.turmaId : null,
-    associado: dados.plano === "mensalista" && !!dados.associado,
-    validadeMensalidade: dados.plano === "mensalista" ? dados.validadeMensalidade || null : dados.validadeMensalidade,
+    associado: mensalista && !!dados.associado,
+    ...camposDasMatriculas(matriculas),
   };
 }
 

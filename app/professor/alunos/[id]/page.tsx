@@ -45,7 +45,11 @@ import {
   linkWhatsapp,
   primeiroNome,
 } from "@/lib/utilitarios/formatadores";
-import { calcularSituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
+import {
+  calcularSituacaoMensalidade,
+  matriculasDoAluno,
+  situacaoDaValidade,
+} from "@/servicos/regras/regrasMensalidade";
 import { ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { alternarAlunoAtivo, definirAssociado, reenviarAcesso } from "@/servicos/servicoAlunos";
@@ -101,7 +105,11 @@ export default function DetalheAluno() {
       />
     );
 
-  const turma = aluno.turmaId ? turmaPorId.get(aluno.turmaId) : undefined;
+  // Uma linha por turma em que o aluno é mensalista (cada uma com a própria mensalidade)
+  const matriculas = matriculasDoAluno(aluno).flatMap((m) => {
+    const turmaDaMatricula = turmaPorId.get(m.turmaId);
+    return turmaDaMatricula ? [{ ...m, turma: turmaDaMatricula, situacao: situacaoDaValidade(m.validade) }] : [];
+  });
   const situacao = calcularSituacaoMensalidade(aluno);
   const idade = calcularIdade(aluno.dataNascimento);
   const totalPago = meusPagamentos.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0);
@@ -185,13 +193,24 @@ export default function DetalheAluno() {
               </Selo>
             </div>
             <dl className="mt-2 divide-y divide-linha/70">
-              {turma ? (
-                <>
-                  <LinhaInfo rotulo="Turma" valor={turma.nome} />
-                  <LinhaInfo rotulo="Horário" valor={`${descreverDiasSemana(turma.diasSemana)}, ${turma.horarioInicio}`} />
-                  <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, turma, configuracoes))} />
-                  <LinhaInfo rotulo="Válida até" valor={formatarData(aluno.validadeMensalidade)} />
-                </>
+              {matriculas.length ? (
+                matriculas.map((m) => (
+                  <div key={m.turmaId} className="py-1">
+                    <div className="flex items-center justify-between gap-3 pt-2">
+                      <span className="font-semibold">{m.turma.nome}</span>
+                      {matriculas.length > 1 && (
+                        <Selo tom={TONS_MENSALIDADE[m.situacao.status]}>{m.situacao.rotulo}</Selo>
+                      )}
+                    </div>
+                    <LinhaInfo
+                      rotulo="Horário"
+                      valor={`${descreverDiasSemana(m.turma.diasSemana)}, ${m.turma.horarioInicio}`}
+                    />
+                    {m.turma.responsavelNome && <LinhaInfo rotulo="Professor" valor={m.turma.responsavelNome} />}
+                    <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, m.turma, configuracoes))} />
+                    <LinhaInfo rotulo="Válida até" valor={formatarData(m.validade)} />
+                  </div>
+                ))
               ) : (
                 <LinhaInfo rotulo="Turma" valor="Sem turma fixa" />
               )}
@@ -204,7 +223,7 @@ export default function DetalheAluno() {
               )}
               {ehAdministrador && <LinhaInfo rotulo="Total pago" valor={formatarMoeda(totalPago)} />}
             </dl>
-            {turma && ehAdministrador && (
+            {matriculas.length > 0 && ehAdministrador && (
               <Botao variante="sucesso" icone={Banknote} larguraTotal className="mt-3" onClick={() => setRegistrando(true)}>
                 Registrar mensalidade recebida
               </Botao>

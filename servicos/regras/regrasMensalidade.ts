@@ -22,19 +22,54 @@ export interface SituacaoMensalidade {
 /** A partir de quantos dias antes do vencimento avisamos o aluno */
 export const DIAS_AVISO_VENCIMENTO = 5;
 
-export function calcularSituacaoMensalidade(aluno: Usuario, hoje: DataISO = hojeISO()): SituacaoMensalidade {
-  if (aluno.perfil !== "aluno" || aluno.plano !== "mensalista") {
-    return {
-      status: "nao_se_aplica",
-      acessoLiberado: false,
-      diasRestantes: null,
-      validade: null,
-      rotulo: "Avulso",
-      descricao: "Use Day Use ou a aula experimental",
-    };
-  }
+/** Uma turma em que o aluno é mensalista, com a validade da mensalidade dela */
+export interface Matricula {
+  turmaId: string;
+  validade: DataISO | null;
+}
 
-  if (!aluno.validadeMensalidade) {
+type AlunoMensalidade = Pick<Usuario, "plano" | "turmaId" | "validadeMensalidade" | "turmasIds" | "validades">;
+
+/** Validade da mensalidade do aluno em uma turma */
+export function validadeNaTurma(aluno: AlunoMensalidade, turmaId: string): DataISO | null {
+  if (aluno.validades && turmaId in aluno.validades) return aluno.validades[turmaId] ?? null;
+  return turmaId === aluno.turmaId ? aluno.validadeMensalidade : null;
+}
+
+/** Turmas em que o aluno é mensalista (a principal primeiro) */
+export function matriculasDoAluno(aluno: AlunoMensalidade): Matricula[] {
+  if (aluno.plano !== "mensalista") return [];
+  const ids = [...new Set([aluno.turmaId, ...(aluno.turmasIds ?? [])].filter((id): id is string => !!id))];
+  return ids.map((turmaId) => ({ turmaId, validade: validadeNaTurma(aluno, turmaId) }));
+}
+
+export const ehMensalistaDaTurma = (aluno: AlunoMensalidade, turmaId: string) =>
+  matriculasDoAluno(aluno).some((m) => m.turmaId === turmaId);
+
+/** Campos do cadastro que guardam as turmas e as validades */
+export function camposDasMatriculas(lista: Matricula[]) {
+  const unicas = lista.filter((m, i) => m.turmaId && lista.findIndex((o) => o.turmaId === m.turmaId) === i);
+  const principal = unicas[0] ?? null;
+  return {
+    turmaId: principal?.turmaId ?? null,
+    validadeMensalidade: principal?.validade ?? null,
+    turmasIds: unicas.map((m) => m.turmaId),
+    validades: Object.fromEntries(unicas.map((m) => [m.turmaId, m.validade ?? null])) as Record<string, DataISO | null>,
+  };
+}
+
+const NAO_SE_APLICA: SituacaoMensalidade = {
+  status: "nao_se_aplica",
+  acessoLiberado: false,
+  diasRestantes: null,
+  validade: null,
+  rotulo: "Avulso",
+  descricao: "Use Day Use ou a aula experimental",
+};
+
+/** Situação de uma mensalidade a partir da validade */
+export function situacaoDaValidade(validade: DataISO | null, hoje: DataISO = hojeISO()): SituacaoMensalidade {
+  if (!validade) {
     return {
       status: "sem_pagamento",
       acessoLiberado: false,
@@ -45,7 +80,7 @@ export function calcularSituacaoMensalidade(aluno: Usuario, hoje: DataISO = hoje
     };
   }
 
-  const dias = diferencaEmDias(hoje, aluno.validadeMensalidade);
+  const dias = diferencaEmDias(hoje, validade);
 
   if (dias < 0) {
     const atraso = Math.abs(dias);
@@ -53,9 +88,9 @@ export function calcularSituacaoMensalidade(aluno: Usuario, hoje: DataISO = hoje
       status: "atrasada",
       acessoLiberado: false,
       diasRestantes: dias,
-      validade: aluno.validadeMensalidade,
+      validade,
       rotulo: "Atrasada",
-      descricao: `Venceu há ${atraso} ${atraso === 1 ? "dia" : "dias"}. Enquanto isso, use Day Use`,
+      descricao: `Venceu há ${atraso} ${atraso === 1 ? "dia" : "dias"}. Pague para voltar a marcar presença`,
     };
   }
 
@@ -64,9 +99,9 @@ export function calcularSituacaoMensalidade(aluno: Usuario, hoje: DataISO = hoje
       status: "vence_em_breve",
       acessoLiberado: true,
       diasRestantes: dias,
-      validade: aluno.validadeMensalidade,
+      validade,
       rotulo: dias === 0 ? "Vence hoje" : `Vence em ${dias} ${dias === 1 ? "dia" : "dias"}`,
-      descricao: `Válida até ${formatarData(aluno.validadeMensalidade)}`,
+      descricao: `Válida até ${formatarData(validade)}`,
     };
   }
 
@@ -74,10 +109,32 @@ export function calcularSituacaoMensalidade(aluno: Usuario, hoje: DataISO = hoje
     status: "em_dia",
     acessoLiberado: true,
     diasRestantes: dias,
-    validade: aluno.validadeMensalidade,
+    validade,
     rotulo: "Em dia",
-    descricao: `Válida até ${formatarData(aluno.validadeMensalidade)}`,
+    descricao: `Válida até ${formatarData(validade)}`,
   };
+}
+
+/**
+ * Situação da mensalidade. Com `turmaId`, a daquela turma; sem, um resumo
+ * (a que mais precisa de atenção, quando o aluno é mensalista de várias turmas).
+ */
+export function calcularSituacaoMensalidade(
+  aluno: Usuario,
+  turmaId?: string | null,
+  hoje: DataISO = hojeISO(),
+): SituacaoMensalidade {
+  if (aluno.perfil !== "aluno") return NAO_SE_APLICA;
+  const matriculas = matriculasDoAluno(aluno);
+  if (!matriculas.length) return NAO_SE_APLICA;
+  if (turmaId) {
+    const matricula = matriculas.find((m) => m.turmaId === turmaId);
+    return matricula ? situacaoDaValidade(matricula.validade, hoje) : NAO_SE_APLICA;
+  }
+  const situacoes = matriculas.map((m) => situacaoDaValidade(m.validade, hoje));
+  const ordem = (s: SituacaoMensalidade) =>
+    s.acessoLiberado ? 1_000 + (s.diasRestantes ?? 0) : s.status === "atrasada" ? (s.diasRestantes ?? 0) : 0;
+  return situacoes.sort((a, b) => ordem(a) - ordem(b))[0];
 }
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, MessageCircle, Pencil } from "lucide-react";
 import { useAutenticacao } from "@/contextos/ContextoAutenticacao";
@@ -15,11 +15,10 @@ import { calcularIdade, formatarCpf, formatarMoeda, formatarTelefone, linkWhatsa
 import { validarTelefone } from "@/lib/utilitarios/validacoes";
 import { TONS_MENSALIDADE } from "@/lib/rotulos";
 import { ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
-import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { atualizarMeuPerfil } from "@/servicos/servicoAlunos";
 
 export default function PerfilAluno() {
-  const { aluno, minhaTurma, situacaoMensalidade, configuracoes } = useDadosAluno();
+  const { aluno, mensalidades, configuracoes } = useDadosAluno();
   const { sair } = useAutenticacao();
   const router = useRouter();
   const [editando, setEditando] = useState(false);
@@ -76,18 +75,23 @@ export default function PerfilAluno() {
                     </Selo>
                   }
                 />
-                {minhaTurma ? (
-                  <>
-                    <LinhaInfo rotulo="Turma" valor={`${minhaTurma.nome} (${ROTULOS_NIVEL[minhaTurma.nivel]})`} />
-                    <LinhaInfo rotulo="Dias" valor={descreverDiasSemana(minhaTurma.diasSemana)} />
-                    <LinhaInfo rotulo="Horário" valor={`${minhaTurma.horarioInicio} às ${minhaTurma.horarioFim}`} />
-                    <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, minhaTurma, configuracoes))} />
-                    <LinhaInfo
-                      rotulo="Situação"
-                      valor={<Selo tom={TONS_MENSALIDADE[situacaoMensalidade.status]}>{situacaoMensalidade.rotulo}</Selo>}
-                    />
-                    <LinhaInfo rotulo="Válida até" valor={formatarData(aluno.validadeMensalidade)} />
-                  </>
+                {mensalidades.length ? (
+                  mensalidades.map(({ turma, situacao, valor }) => (
+                    <Fragment key={turma.id}>
+                      <LinhaInfo rotulo="Turma" valor={`${turma.nome} (${ROTULOS_NIVEL[turma.nivel]})`} />
+                      <LinhaInfo
+                        rotulo="Dias e horário"
+                        valor={`${descreverDiasSemana(turma.diasSemana)}, ${turma.horarioInicio} às ${turma.horarioFim}`}
+                      />
+                      {turma.responsavelNome && <LinhaInfo rotulo="Professor" valor={turma.responsavelNome} />}
+                      <LinhaInfo rotulo="Valor" valor={formatarMoeda(valor)} />
+                      <LinhaInfo
+                        rotulo="Situação"
+                        valor={<Selo tom={TONS_MENSALIDADE[situacao.status]}>{situacao.rotulo}</Selo>}
+                      />
+                      <LinhaInfo rotulo="Válida até" valor={formatarData(situacao.validade)} />
+                    </Fragment>
+                  ))
                 ) : (
                   <LinhaInfo rotulo="Day Use" valor={formatarMoeda(configuracoes.valorDayUse)} />
                 )}

@@ -61,6 +61,8 @@ export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
           plano: dados.plano,
           turmaId: dados.plano === "mensalista" ? dados.turmaId : null,
           validadeMensalidade: null,
+          turmasIds: dados.plano === "mensalista" && dados.turmaId ? [dados.turmaId] : [],
+          validades: {},
           usouExperimental: false,
           ativo: true,
           observacoes: "",

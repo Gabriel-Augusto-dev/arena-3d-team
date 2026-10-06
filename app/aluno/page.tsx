@@ -50,14 +50,10 @@ function InicioAluno() {
   const proxima = ativas.find((a) => a.situacao.tipo === "confirmada");
   // Dias extras: aparecem para todos, mensalistas e avulsos (todos pagam diária)
   const diasExtras = ativas.filter((a) => ehDiaExtra(a.aula) && a.situacao.tipo !== "confirmada");
-  // Aulas desta semana (até domingo): da turma do mensalista; para avulsos, todas.
+  // Todas as aulas desta semana (até domingo), de todos os professores: nas turmas
+  // do mensalista a presença é livre; nas outras, entra como Day Use.
   // As já marcadas continuam na lista (com o ✓), menos a que está no destaque
-  const sugestoes = ativas.filter(
-    (a) =>
-      !ehDiaExtra(a.aula) &&
-      a.aula.id !== proxima?.aula.id &&
-      (aluno.plano !== "mensalista" || a.ehDaMinhaTurma),
-  );
+  const sugestoes = ativas.filter((a) => !ehDiaExtra(a.aula) && a.aula.id !== proxima?.aula.id);
   const idAberto = abertaId ?? (linkValido && !carregando ? aulaDoLink : null);
   const aberta = agenda.find((a) => a.aula.id === idAberto);
   const fecharFolha = () => {

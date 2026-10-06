@@ -1,3 +1,4 @@
+import { matriculasDoAluno } from "./regrasMensalidade";
 import type { Aula, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { ehDiaExtra } from "./regrasAula";
 
@@ -34,7 +35,9 @@ export function alunosDoResponsavel(
   presencasDele: Presenca[],
 ): Usuario[] {
   const comPresenca = new Set(presencasDele.map((p) => p.alunoId));
-  return alunos.filter((a) => (a.turmaId && turmasIds.has(a.turmaId)) || comPresenca.has(a.id));
+  return alunos.filter(
+    (a) => matriculasDoAluno(a).some((m) => turmasIds.has(m.turmaId)) || comPresenca.has(a.id),
+  );
 }
 
 /**

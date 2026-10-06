@@ -3,6 +3,7 @@ import type { Aula, Presenca, Turma, Usuario } from "@/tipos";
 import { adicionarDias, diaDaSemana, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { operacaoNotificarAluno } from "./servicoNotificacoes";
 import { ehDiaExtra, TURMA_DIA_EXTRA } from "./regras/regrasAula";
+import { ehMensalistaDaTurma } from "./regras/regrasMensalidade";
 
 export const DIAS_AGENDA_AUTOMATICA = 21;
 
@@ -26,12 +27,17 @@ function montarAula(turma: Turma, data: string): Omit<Aula, "id" | "criadoEm" | 
  * Seguro para chamar várias vezes: o id é `${turmaId}_${data}`.
  * Retorna quantas aulas foram criadas.
  */
-export async function garantirAulasFuturas(dias = DIAS_AGENDA_AUTOMATICA): Promise<number> {
+export async function garantirAulasFuturas(
+  dias = DIAS_AGENDA_AUTOMATICA,
+  /** Professor auxiliar: só as turmas dele (ele não pode criar aulas de outras turmas) */
+  somenteDoResponsavel?: string,
+): Promise<number> {
   const hoje = hojeISO();
-  const [turmas, existentes] = await Promise.all([
+  const [ativas, existentes] = await Promise.all([
     banco.listar("turmas", [onde("ativa", "==", true)]),
     banco.listar("aulas", [onde("data", ">=", hoje)]),
   ]);
+  const turmas = somenteDoResponsavel ? ativas.filter((t) => t.responsavelId === somenteDoResponsavel) : ativas;
   const idsExistentes = new Set(existentes.map((a) => a.id));
   const operacoes: OperacaoLote[] = [];
 
@@ -105,7 +111,7 @@ export async function cancelarAula(
   const quando = `${formatarDataRelativa(aula.data).toLowerCase()} às ${aula.horarioInicio}`;
   const nomeTurma = turma?.nome ?? (ehDiaExtra(aula) ? "Dia extra" : "aula");
   const ativas = presencas.filter((p) => p.aulaId === aula.id && p.status === "confirmada");
-  const mensalistas = alunos.filter((a) => a.plano === "mensalista" && a.turmaId === aula.turmaId && a.ativo);
+  const mensalistas = alunos.filter((a) => a.ativo && ehMensalistaDaTurma(a, aula.turmaId));
   const avisar = new Set([...ativas.map((p) => p.alunoId), ...mensalistas.map((m) => m.id)]);
 
   const operacoes: OperacaoLote[] = [

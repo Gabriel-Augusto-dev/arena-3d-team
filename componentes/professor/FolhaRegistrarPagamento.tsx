@@ -10,7 +10,7 @@ import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo, SeletorOpcoes } from "@/componentes/interface/Campos";
 import { adicionarDias, formatarData, hojeISO } from "@/lib/utilitarios/datas";
-import { calcularNovoCiclo } from "@/servicos/regras/regrasMensalidade";
+import { calcularNovoCiclo, matriculasDoAluno, validadeNaTurma } from "@/servicos/regras/regrasMensalidade";
 import { registrarMensalidadeRecebida } from "@/servicos/servicoPagamentos";
 
 /** Professor recebeu a mensalidade direto (dinheiro ou PIX fora do app) */
@@ -18,7 +18,13 @@ export function FolhaRegistrarPagamento({ aluno, aoFechar }: { aluno: Usuario; a
   const professor = useUsuarioLogado();
   const { turmaPorId, configuracoes } = useDadosProfessor();
   const avisos = useAvisos();
-  const turma = aluno.turmaId ? turmaPorId.get(aluno.turmaId) : undefined;
+  // Mensalista de mais de uma turma: escolhe de qual turma é a mensalidade
+  const turmasDoAluno = matriculasDoAluno(aluno).flatMap((m) => {
+    const t = turmaPorId.get(m.turmaId);
+    return t ? [t] : [];
+  });
+  const [turmaId, setTurmaId] = useState(turmasDoAluno[0]?.id ?? "");
+  const turma = turmasDoAluno.find((t) => t.id === turmaId);
   const [valor, setValor] = useState(
     turma ? valorMensalidadeDoAluno(aluno, turma, configuracoes) : configuracoes.valorMensalidadePadrao,
   );
@@ -26,7 +32,12 @@ export function FolhaRegistrarPagamento({ aluno, aoFechar }: { aluno: Usuario; a
   const [salvando, setSalvando] = useState(false);
 
   if (!turma) return null;
-  const ciclo = calcularNovoCiclo(aluno.validadeMensalidade, configuracoes.diasCicloMensalidade);
+  const ciclo = calcularNovoCiclo(validadeNaTurma(aluno, turma.id), configuracoes.diasCicloMensalidade);
+  const trocarTurma = (id: string) => {
+    setTurmaId(id);
+    const nova = turmasDoAluno.find((t) => t.id === id);
+    if (nova) setValor(valorMensalidadeDoAluno(aluno, nova, configuracoes));
+  };
 
   const salvar = async () => {
     setSalvando(true);
@@ -53,6 +64,14 @@ export function FolhaRegistrarPagamento({ aluno, aoFechar }: { aluno: Usuario; a
       }
     >
       <div className="flex flex-col gap-4">
+        {turmasDoAluno.length > 1 && (
+          <SeletorOpcoes<string>
+            rotulo="Mensalidade da turma"
+            opcoes={turmasDoAluno.map((t) => ({ valor: t.id, rotulo: t.nome }))}
+            valor={turma.id}
+            aoMudar={trocarTurma}
+          />
+        )}
         <SeletorOpcoes<FormaPagamento>
           rotulo="Como recebeu"
           opcoes={[

@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { avaliarPresenca, type SituacaoPresenca } from "@/servicos/regras/regrasAula";
+import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
 import type { Aula, Pagamento, Turma } from "@/tipos";
 
 export interface AulaDoAluno {
@@ -32,7 +33,7 @@ export function useAgendaAluno() {
           turma: turmaPorId.get(aula.turmaId),
           situacao,
           cobranca,
-          ehDaMinhaTurma: aluno.plano === "mensalista" && aula.turmaId === aluno.turmaId,
+          ehDaMinhaTurma: ehMensalistaDaTurma(aluno, aula.turmaId),
         };
       }),
     [aluno, aulas, turmaPorId, minhasPresencas, meusPagamentos, configuracoes],

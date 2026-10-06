@@ -11,7 +11,11 @@ import { Campo } from "@/componentes/interface/Campos";
 import { Avatar, EsqueletoLista, EstadoVazio, FichasFiltro, Selo, TituloPagina } from "@/componentes/interface/Elementos";
 import { TONS_MENSALIDADE } from "@/lib/rotulos";
 import { contemTexto, formatarTelefone, somenteNumeros } from "@/lib/utilitarios/formatadores";
-import { calcularSituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
+import {
+  calcularSituacaoMensalidade,
+  ehMensalistaDaTurma,
+  matriculasDoAluno,
+} from "@/servicos/regras/regrasMensalidade";
 import type { Usuario } from "@/tipos";
 import { onde } from "@/lib/banco";
 import { useColecao } from "@/ganchos/useColecao";
@@ -55,8 +59,13 @@ export default function AlunosProfessor() {
   }, [filtrandoProfessor, professorFiltro, alunos, turmas, turmaPorId, aulasHistorico.dados, presencasHistorico.dados]);
 
   const comSituacao = useMemo(
-    () => alunosVisiveis.map((aluno) => ({ aluno, situacao: calcularSituacaoMensalidade(aluno) })),
-    [alunosVisiveis],
+    // Com uma turma escolhida, a situação é a da mensalidade daquela turma
+    () =>
+      alunosVisiveis.map((aluno) => ({
+        aluno,
+        situacao: calcularSituacaoMensalidade(aluno, turmaFiltro && ehMensalistaDaTurma(aluno, turmaFiltro) ? turmaFiltro : null),
+      })),
+    [alunosVisiveis, turmaFiltro],
   );
 
   const regras: Record<Filtro, (a: (typeof comSituacao)[number]) => boolean> = {
@@ -72,7 +81,7 @@ export default function AlunosProfessor() {
 
   const lista = comSituacao.filter((item) => {
     if (!regras[filtro](item)) return false;
-    if (turmaFiltro && item.aluno.turmaId !== turmaFiltro) return false;
+    if (turmaFiltro && !ehMensalistaDaTurma(item.aluno, turmaFiltro)) return false;
     if (!busca.trim()) return true;
     const numeros = somenteNumeros(busca);
     return (
@@ -175,7 +184,12 @@ export default function AlunosProfessor() {
               <li key={aluno.id}>
                 <LinhaAluno
                   aluno={aluno}
-                  turmaNome={aluno.turmaId ? turmaPorId.get(aluno.turmaId)?.nome : undefined}
+                  turmaNome={
+                    matriculasDoAluno(aluno)
+                      .map((m) => turmaPorId.get(m.turmaId)?.nome)
+                      .filter(Boolean)
+                      .join(", ") || undefined
+                  }
                   selo={
                     !aluno.ativo ? (
                       <Selo tom="cinza">Inativo</Selo>

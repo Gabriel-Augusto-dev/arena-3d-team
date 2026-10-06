@@ -32,14 +32,14 @@ export function CartaoAulaAluno({ item, aoAbrir }: { item: AulaDoAluno; aoAbrir(
           >
             {turma?.nome ?? "Aula"}
           </span>
+          {professor && (
+            <span className="mt-0.5 flex items-center gap-1 truncate text-[13px] font-semibold text-marinho-700">
+              <UserRound className="size-3.5 shrink-0" />
+              Prof. {professor}
+            </span>
+          )}
           <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[13px] text-suave">
             {turma && ROTULOS_NIVEL[turma.nivel] !== turma.nome && <span>{ROTULOS_NIVEL[turma.nivel]}</span>}
-            {professor && (
-              <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                <UserRound className="size-3.5" />
-                Prof. {professor}
-              </span>
-            )}
             {quadra && (
               <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
                 <MapPin className="size-3.5" />

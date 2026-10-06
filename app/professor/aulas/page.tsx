@@ -18,6 +18,7 @@ import { adicionarDias, descreverDiasSemana, formatarDataExtenso, hojeISO } from
 import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
 import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
 import { descreverQuadra, presencasDaAula, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
+import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
 import { criarAulaExtra } from "@/servicos/servicoAulas";
 import { alternarTurmaAtiva, removerTurma } from "@/servicos/servicoTurmas";
 import type { Turma } from "@/tipos";
@@ -27,8 +28,8 @@ type Visao = (typeof VISOES)[number];
 
 export default function TurmasProfessor() {
   const { turmas, carregando } = useDadosProfessor();
-  // Criar e editar turmas é só do administrador; o auxiliar só consulta
-  const { ehAdministrador } = useAutenticacao();
+  // Administrador cria turmas para qualquer professor; o auxiliar, só as dele
+  const { ehEquipe: podeCriarTurma } = useAutenticacao();
   const [visao, setVisao] = useAbaDaUrl<Visao>(VISOES, "turmas");
   const [turmaEditada, setTurmaEditada] = useState<Turma | "nova" | null>(null);
 
@@ -38,7 +39,7 @@ export default function TurmasProfessor() {
         titulo="Turmas"
         subtitulo={`${turmas.filter((t) => t.ativa).length} turmas ativas`}
         acao={
-          ehAdministrador && (
+          podeCriarTurma && (
             <Botao variante="destaque" icone={Plus} onClick={() => setTurmaEditada("nova")} className="max-sm:hidden">
               Nova turma
             </Botao>
@@ -57,7 +58,7 @@ export default function TurmasProfessor() {
 
       {carregando ? <EsqueletoLista /> : visao === "agenda" ? <Agenda /> : <ListaTurmas aoEditar={setTurmaEditada} />}
 
-      {ehAdministrador && (
+      {podeCriarTurma && (
         <button
           onClick={() => setTurmaEditada("nova")}
           aria-label="Nova turma"
@@ -67,7 +68,7 @@ export default function TurmasProfessor() {
         </button>
       )}
 
-      {turmaEditada && ehAdministrador && (
+      {turmaEditada && podeCriarTurma && (
         <FolhaFormularioTurma
           turma={turmaEditada === "nova" ? undefined : turmaEditada}
           aoFechar={() => setTurmaEditada(null)}
@@ -184,7 +185,7 @@ function FolhaAulaExtra({ dataInicial, aoFechar }: { dataInicial: string; aoFech
 
 function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
   const { turmas, alunos, nomeResponsavel } = useDadosProfessor();
-  const { ehAdministrador } = useAutenticacao();
+  const { ehAdministrador, ehEquipe: podeEditar } = useAutenticacao();
   const avisos = useAvisos();
 
   const executar = async (acao: () => Promise<unknown>, mensagem: string) => {
@@ -201,9 +202,11 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
       <EstadoVazio
         icone={Users}
         titulo="Nenhuma turma"
-        descricao={ehAdministrador ? "Crie a primeira turma para montar a agenda." : "O professor ainda não criou turmas."}
+        descricao={
+          ehAdministrador ? "Crie a primeira turma para montar a agenda." : "Crie sua primeira turma para montar a agenda."
+        }
         acao={
-          ehAdministrador && (
+          podeEditar && (
             <Botao icone={Plus} onClick={() => aoEditar("nova")}>
               Nova turma
             </Botao>
@@ -215,7 +218,7 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
   return (
     <ul className="grid gap-3 md:grid-cols-2">
       {turmas.map((turma) => {
-        const mensalistas = alunos.filter((a) => a.ativo && a.plano === "mensalista" && a.turmaId === turma.id);
+        const mensalistas = alunos.filter((a) => a.ativo && ehMensalistaDaTurma(a, turma.id));
         return (
           <li key={turma.id} className={`rounded-3xl bg-white p-4 ring-1 ring-linha/70 ${turma.ativa ? "" : "opacity-60"}`}>
             <div className="flex items-start justify-between gap-3">
@@ -250,7 +253,7 @@ function ListaTurmas({ aoEditar }: { aoEditar(turma: Turma | "nova"): void }) {
                 <p className="numeros font-titulo text-xl font-bold">{formatarMoeda(turma.valorMensalidade)}</p>
               </div>
             </div>
-            {ehAdministrador && (
+            {podeEditar && (
             <div className="mt-3 flex gap-2">
               <Botao variante="secundario" tamanho="pequeno" icone={Pencil} onClick={() => aoEditar(turma)}>
                 Editar

@@ -42,8 +42,14 @@ export interface Usuario {
   plano: PlanoAluno;
   /** Turma do mensalista (null para avulsos, professores e auxiliares) */
   turmaId: string | null;
-  /** Último dia coberto pela mensalidade paga. null = nunca pagou */
+  /** Último dia coberto pela mensalidade paga (da turma principal). null = nunca pagou */
   validadeMensalidade: DataISO | null;
+  /**
+   * Mensalista de mais de uma turma: todas as turmas dele (a 1ª é a `turmaId`)
+   * e a validade da mensalidade de cada uma. Cada turma tem a própria mensalidade.
+   */
+  turmasIds?: string[];
+  validades?: Record<string, DataISO | null>;
   /** A aula experimental gratuita só pode ser usada uma vez */
   usouExperimental: boolean;
   /** Mensalista associado: paga a mensalidade de associado definida em Ajustes */

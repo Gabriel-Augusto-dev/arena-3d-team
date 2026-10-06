@@ -3,6 +3,7 @@ import { ErroHttp, lerCorpo, responder, tratarErro, usuarioDaRequisicao } from "
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { idNotificacao } from "@/lib/utilitarios/identificadores";
 import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
+import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
 import type { Configuracoes, Notificacao, Pagamento, Turma } from "@/tipos";
 
 /**
@@ -15,21 +16,30 @@ export async function POST(request: Request) {
   try {
     const aluno = await usuarioDaRequisicao(request);
     if (aluno.perfil !== "aluno") throw new ErroHttp(403, "Só o aluno avisa o pagamento da mensalidade");
-    if (aluno.plano !== "mensalista" || !aluno.turmaId) throw new ErroHttp(400, "Você não é mensalista de uma turma");
-
-    const { observacaoAluno } = await lerCorpo<{ observacaoAluno: string }>(request);
+    const { observacaoAluno, turmaId: turmaPedida } = await lerCorpo<{ observacaoAluno: string; turmaId: string }>(
+      request,
+    );
     const observacao = typeof observacaoAluno === "string" ? observacaoAluno.trim().slice(0, 140) : "";
+    // Mensalista de várias turmas: cada uma tem a própria mensalidade
+    const turmaId = typeof turmaPedida === "string" && turmaPedida ? turmaPedida : aluno.turmaId;
+    if (!turmaId || !ehMensalistaDaTurma(aluno, turmaId)) {
+      throw new ErroHttp(400, "Você não é mensalista desta turma");
+    }
 
     const db = bancoAdmin();
     const [turmaDoc, configDoc, emAnalise] = await Promise.all([
-      db.collection("turmas").doc(aluno.turmaId).get(),
+      db.collection("turmas").doc(turmaId).get(),
       db.collection("configuracoes").doc("geral").get(),
       // Um filtro só (não depende de índice); o resto é filtrado aqui
       db.collection("pagamentos").where("alunoId", "==", aluno.id).get(),
     ]);
     const turma = turmaDoc.data() as Turma | undefined;
     if (!turma) throw new ErroHttp(400, "Sua turma não foi encontrada. Fale com o professor");
-    if (emAnalise.docs.some((d) => d.data().tipo === "mensalidade" && d.data().status === "em_analise")) {
+    const jaAvisado = emAnalise.docs.some((d) => {
+      const p = d.data();
+      return p.tipo === "mensalidade" && p.status === "em_analise" && (p.turmaId ?? aluno.turmaId) === turmaId;
+    });
+    if (jaAvisado) {
       throw new ErroHttp(409, "Você já avisou este pagamento. Aguarde o professor confirmar");
     }
 
@@ -51,7 +61,7 @@ export async function POST(request: Request) {
       vencimento: null,
       aulaId: null,
       presencaId: null,
-      turmaId: aluno.turmaId,
+      turmaId,
       cicloInicio: null,
       cicloFim: null,
       informadoEm: agora,

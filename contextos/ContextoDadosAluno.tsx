@@ -7,7 +7,13 @@ import { useConfiguracoes } from "@/ganchos/useConfiguracoes";
 import { useUsuarioLogado } from "./ContextoAutenticacao";
 import { adicionarDias, hojeISO } from "@/lib/utilitarios/datas";
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
-import { calcularSituacaoMensalidade, type SituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
+import {
+  calcularSituacaoMensalidade,
+  matriculasDoAluno,
+  situacaoDaValidade,
+  type SituacaoMensalidade,
+} from "@/servicos/regras/regrasMensalidade";
+import { valorMensalidadeDoAluno } from "@/servicos/regras/regrasPreco";
 import { cobrancasEmAberto, cobrancasEmAtraso } from "@/servicos/regras/regrasPagamento";
 import { aulaDaSemana, mapaDeTurmas } from "@/servicos/regras/regrasAula";
 
@@ -16,8 +22,19 @@ import { aulaDaSemana, mapaDeTurmas } from "@/servicos/regras/regrasAula";
  * O aluno só lê turmas, aulas, configurações e os PRÓPRIOS dados
  * (presenças e pagamentos) — pensado para as regras do Firestore.
  */
+/** Uma mensalidade do aluno (ele pode ser mensalista de mais de uma turma) */
+export interface MensalidadeDoAluno {
+  turma: Turma;
+  situacao: SituacaoMensalidade;
+  /** PIX avisado desta turma, esperando o professor confirmar */
+  emAnalise: Pagamento | null;
+  valor: number;
+}
+
 interface DadosAluno {
   aluno: Usuario;
+  /** Uma por turma em que o aluno é mensalista */
+  mensalidades: MensalidadeDoAluno[];
   turmas: Turma[];
   turmaPorId: Map<string, Turma>;
   minhaTurma: Turma | null;
@@ -102,11 +119,28 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
     const meusPagamentos = mesclar([...porId.values()], locais.pagamentos).sort((a, b) =>
       b.criadoEm.localeCompare(a.criadoEm),
     );
+    const emAnaliseDaTurma = (turmaId: string) =>
+      meusPagamentos.find(
+        (p) => p.tipo === "mensalidade" && p.status === "em_analise" && (p.turmaId ?? aluno.turmaId) === turmaId,
+      ) ?? null;
+    const mensalidades: MensalidadeDoAluno[] = matriculasDoAluno(aluno).flatMap((m) => {
+      const turma = turmaPorId.get(m.turmaId);
+      if (!turma) return [];
+      return [
+        {
+          turma,
+          situacao: situacaoDaValidade(m.validade),
+          emAnalise: emAnaliseDaTurma(m.turmaId),
+          valor: valorMensalidadeDoAluno(aluno, turma, configuracoes),
+        },
+      ];
+    });
     return {
       aluno,
+      mensalidades,
       turmas: turmas.dados,
       turmaPorId,
-      minhaTurma: aluno.turmaId ? (turmaPorId.get(aluno.turmaId) ?? null) : null,
+      minhaTurma: mensalidades[0]?.turma ?? null,
       aulas: aulas.dados
         // Só a semana atual (até domingo). Dia extra aparece mesmo que seja mais para frente
         .filter((a) => aulaDaSemana(a, hoje) && turmaPorId.has(a.turmaId))
@@ -117,8 +151,7 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
       cobrancasAtrasadas: cobrancasEmAtraso(meusPagamentos),
       configuracoes,
       situacaoMensalidade: calcularSituacaoMensalidade(aluno),
-      mensalidadeEmAnalise:
-        meusPagamentos.find((p) => p.tipo === "mensalidade" && p.status === "em_analise") ?? null,
+      mensalidadeEmAnalise: mensalidades.find((m) => m.emAnalise)?.emAnalise ?? null,
       carregando:
         turmas.carregando ||
         aulas.carregando ||

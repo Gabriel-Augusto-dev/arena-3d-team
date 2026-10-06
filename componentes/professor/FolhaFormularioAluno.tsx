@@ -6,7 +6,8 @@ import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
-import { Campo, CampoSelecao, CampoTexto, SeletorOpcoes } from "@/componentes/interface/Campos";
+import { Campo, CampoTexto, SeletorOpcoes } from "@/componentes/interface/Campos";
+import { camposDasMatriculas, matriculasDoAluno, type Matricula } from "@/servicos/regras/regrasMensalidade";
 import { descreverDiasSemana, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarCpf, formatarMoeda, formatarTelefone } from "@/lib/utilitarios/formatadores";
 import { validarDadosPessoais, type ErrosFormulario } from "@/lib/utilitarios/validacoes";
@@ -40,6 +41,8 @@ export function FolhaFormularioAluno({
     plano: aluno?.plano ?? "mensalista",
     turmaId: aluno?.turmaId ?? turmas.find((t) => t.ativa)?.id ?? null,
     validadeMensalidade: aluno?.validadeMensalidade ?? null,
+    turmasIds: aluno?.turmasIds,
+    validades: aluno?.validades,
     usouExperimental: aluno?.usouExperimental ?? false,
     associado: aluno?.associado ?? false,
     ativo: aluno?.ativo ?? true,
@@ -52,11 +55,24 @@ export function FolhaFormularioAluno({
     if (erros[campo]) setErros((e) => ({ ...e, [campo]: undefined }));
   };
 
-  const turmaEscolhida = turmas.find((t) => t.id === dados.turmaId);
+  // Turmas em que o aluno é mensalista (pode ser mais de uma), cada uma com a validade da mensalidade
+  const matriculas = matriculasDoAluno({ ...dados, plano: "mensalista" });
+  const definirMatriculas = (lista: Matricula[]) => {
+    setDados((d) => ({ ...d, ...camposDasMatriculas(lista) }));
+    if (erros.turmaId) setErros((e) => ({ ...e, turmaId: undefined }));
+  };
+  const alternarTurma = (turmaId: string) =>
+    definirMatriculas(
+      matriculas.some((m) => m.turmaId === turmaId)
+        ? matriculas.filter((m) => m.turmaId !== turmaId)
+        : [...matriculas, { turmaId, validade: null }],
+    );
+  const mudarValidade = (turmaId: string, validade: string) =>
+    definirMatriculas(matriculas.map((m) => (m.turmaId === turmaId ? { ...m, validade: validade || null } : m)));
 
   const salvar = async () => {
     const novosErros: ErrosFormulario<Formulario> = validarDadosPessoais(dados);
-    if (dados.plano === "mensalista" && !dados.turmaId) novosErros.turmaId = "Escolha a turma";
+    if (dados.plano === "mensalista" && !matriculas.length) novosErros.turmaId = "Escolha pelo menos uma turma";
     setErros(novosErros);
     if (Object.keys(novosErros).length) return;
 
@@ -150,33 +166,49 @@ export function FolhaFormularioAluno({
             aoMudar={(plano) => alterar("plano", plano)}
           />
           {dados.plano === "mensalista" && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <CampoSelecao
-                rotulo="Turma"
-                value={dados.turmaId ?? ""}
-                onChange={(e) => alterar("turmaId", e.target.value || null)}
-                erro={erros.turmaId}
-                dica={
-                  turmaEscolhida
-                    ? `${descreverDiasSemana(turmaEscolhida.diasSemana)}, ${turmaEscolhida.horarioInicio} · ${formatarMoeda(turmaEscolhida.valorMensalidade)}`
-                    : undefined
-                }
-              >
-                <option value="">Escolha…</option>
-                {turmas.map((t) => (
-                  <option key={t.id} value={t.id} disabled={!t.ativa}>
-                    {t.nome} — {descreverDiasSemana(t.diasSemana)} {t.horarioInicio}
-                    {t.ativa ? "" : " (inativa)"}
-                  </option>
-                ))}
-              </CampoSelecao>
-              <Campo
-                rotulo="Mensalidade válida até"
-                type="date"
-                value={dados.validadeMensalidade ?? ""}
-                onChange={(e) => alterar("validadeMensalidade", e.target.value || null)}
-                dica="Ajuste manual. O normal é confirmar o pagamento no Financeiro"
-              />
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold">Turmas (cada uma tem a sua mensalidade)</p>
+              {turmas.map((t) => {
+                const matricula = matriculas.find((m) => m.turmaId === t.id);
+                return (
+                  <div
+                    key={t.id}
+                    className={`rounded-2xl px-4 py-3 ring-1 ${matricula ? "bg-white ring-marinho-300" : "bg-fundo ring-linha/70"}`}
+                  >
+                    <label className="flex items-center justify-between gap-3">
+                      <span className="min-w-0">
+                        <span className="block truncate text-[15px] font-semibold">
+                          {t.nome}
+                          {t.ativa ? "" : " (inativa)"}
+                        </span>
+                        <span className="block text-[13px] text-suave">
+                          {descreverDiasSemana(t.diasSemana)} {t.horarioInicio} · {formatarMoeda(t.valorMensalidade)}
+                          {t.responsavelNome ? ` · Prof. ${t.responsavelNome}` : ""}
+                        </span>
+                      </span>
+                      <input
+                        type="checkbox"
+                        aria-label={`Mensalista da turma ${t.nome}`}
+                        className="size-5 shrink-0 accent-marinho-600"
+                        checked={!!matricula}
+                        disabled={!t.ativa && !matricula}
+                        onChange={() => alternarTurma(t.id)}
+                      />
+                    </label>
+                    {matricula && (
+                      <Campo
+                        className="mt-3"
+                        rotulo="Mensalidade válida até"
+                        type="date"
+                        value={matricula.validade ?? ""}
+                        onChange={(e) => mudarValidade(t.id, e.target.value)}
+                        dica="Ajuste manual. O normal é confirmar o pagamento no Financeiro"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+              {erros.turmaId && <p className="text-[13px] font-medium text-erro">{erros.turmaId}</p>}
             </div>
           )}
         </fieldset>
