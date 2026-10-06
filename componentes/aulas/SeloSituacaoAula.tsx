@@ -23,8 +23,9 @@ export function SeloSituacaoAula({ situacao, cobranca }: { situacao: SituacaoPre
     case "encerrada":
       return <Selo tom="cinza">Encerrada</Selo>;
     case "bloqueada":
+      return situacao.emAtraso.length ? <Selo tom="vermelho">Bloqueada</Selo> : <Selo tom="amarelo">Aguardando confirmação</Selo>;
     case "mensalidade_pendente":
-      return <Selo tom="vermelho">Bloqueada</Selo>;
+      return situacao.emAnalise ? <Selo tom="amarelo">Aguardando confirmação</Selo> : <Selo tom="vermelho">Bloqueada</Selo>;
     case "livre_mensalista":
       return null;
     case "day_use":

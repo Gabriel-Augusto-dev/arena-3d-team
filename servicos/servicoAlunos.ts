@@ -76,6 +76,16 @@ export async function atualizarMeuPerfil(
  * Marca/desmarca o aluno como associado. O administrador muda qualquer
  * aluno; o professor auxiliar só os alunos dele (o servidor confere).
  */
-export async function definirAssociado(aluno: Usuario, associado: boolean) {
+/**
+ * Marca/desmarca o mensalista como associado.
+ * Administrador grava direto (como no Editar); o auxiliar passa pelo
+ * servidor, que confere se o aluno é das turmas dele.
+ */
+export async function definirAssociado(aluno: Usuario, associado: boolean, comoAdministrador: boolean) {
+  if (associado && aluno.plano !== "mensalista") throw new Error("Associado é só para mensalista");
+  if (comoAdministrador) {
+    await banco.atualizar("usuarios", aluno.id, { associado: associado && aluno.plano === "mensalista" });
+    return;
+  }
   await chamarApi("/api/alunos/associado", { alunoId: aluno.id, associado });
 }

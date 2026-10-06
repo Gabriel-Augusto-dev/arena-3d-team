@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Lock } from "lucide-react";
+import { Check, Hourglass, Lock } from "lucide-react";
 import type { AulaDoAluno } from "@/ganchos/useAgendaAluno";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { useAvisos } from "@/contextos/ContextoAvisos";
@@ -24,6 +24,16 @@ export function BotaoPresenca({ item, aoAbrir }: { item: AulaDoAluno; aoAbrir():
       <span className="grid size-11 shrink-0 place-items-center rounded-full bg-ok text-white" aria-label="Presença marcada">
         <Check className="size-5" strokeWidth={3} />
       </span>
+    );
+  }
+  const aguardando =
+    (situacao.tipo === "bloqueada" && !situacao.emAtraso.length) ||
+    (situacao.tipo === "mensalidade_pendente" && situacao.emAnalise);
+  if (aguardando) {
+    return (
+      <Botao variante="secundario" tamanho="pequeno" icone={Hourglass} onClick={aoAbrir}>
+        Em análise
+      </Botao>
     );
   }
   if (situacao.tipo === "bloqueada" || situacao.tipo === "mensalidade_pendente") {

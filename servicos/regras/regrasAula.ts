@@ -1,7 +1,7 @@
 import type { Aula, Configuracoes, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
 import { aulaJaComecou } from "@/lib/utilitarios/datas";
 import { calcularSituacaoMensalidade } from "./regrasMensalidade";
-import { cobrancasEmAtraso } from "./regrasPagamento";
+import { cobrancasQueBloqueiam } from "./regrasPagamento";
 
 /**
  * Regras de presença:
@@ -10,9 +10,10 @@ import { cobrancasEmAtraso } from "./regrasPagamento";
  *    qualquer turma se o professor liberar nos Ajustes).
  *  - Day Use: marca presença e paga o valor (pode ser depois da aula).
  *  - Day Use não pago até a meia-noite do dia da aula fica em atraso e
- *    BLOQUEIA novas presenças até ser pago.
+ *    BLOQUEIA novas presenças até o professor confirmar o pagamento.
  *  - Experimental: gratuita, uma única vez.
- *  - Mensalista com mensalidade atrasada marca como Day Use.
+ *  - Mensalista sem a mensalidade em dia não marca presença: só depois que
+ *    o professor confirmar o pagamento (PIX avisado ainda não libera).
  *  - Dia extra (criado pelo professor quando quiser): TODOS pagam diária,
  *    inclusive mensalistas. Não vale aula experimental.
  */
@@ -57,9 +58,10 @@ export type SituacaoPresenca =
   | { tipo: "confirmada"; presenca: Presenca; podeDesmarcar: boolean }
   | { tipo: "aula_cancelada"; motivo: string }
   | { tipo: "encerrada" }
-  | { tipo: "bloqueada"; emAtraso: Pagamento[] }
-  /** Mensalista com a mensalidade atrasada (ou sem o 1º pagamento): só marca depois de pagar */
-  | { tipo: "mensalidade_pendente"; primeiroPagamento: boolean }
+  /** Day Use vencido: emAtraso = falta pagar; emAnalise = PIX avisado, falta o professor confirmar */
+  | { tipo: "bloqueada"; emAtraso: Pagamento[]; emAnalise: Pagamento[] }
+  /** Mensalista com a mensalidade atrasada (ou sem o 1º pagamento): só marca depois da confirmação */
+  | { tipo: "mensalidade_pendente"; primeiroPagamento: boolean; emAnalise: boolean }
   | { tipo: "livre_mensalista" }
   | { tipo: "day_use"; motivo: MotivoDayUse; podeExperimental: boolean };
 
@@ -90,17 +92,20 @@ export function avaliarPresenca(
 
   if (aulaEncerrada(aula)) return { tipo: "encerrada" };
 
-  const emAtraso = cobrancasEmAtraso(meusPagamentos);
-  if (emAtraso.length) return { tipo: "bloqueada", emAtraso };
+  const bloqueios = cobrancasQueBloqueiam(meusPagamentos);
+  if (bloqueios.emAtraso.length || bloqueios.emAnalise.length) return { tipo: "bloqueada", ...bloqueios };
 
-  // Mensalista com a mensalidade em aberto não marca presença até pagar.
-  // Se ele já avisou o PIX (em análise), fica liberado enquanto o professor confere.
+  // Mensalista com a mensalidade em aberto só marca presença depois que o
+  // professor confirmar o pagamento (o PIX avisado fica "em análise" e não libera).
   const mensalidade = calcularSituacaoMensalidade(aluno);
   const ehMensalista = aluno.plano === "mensalista";
-  const mensalidadeAvisada = meusPagamentos.some((p) => p.tipo === "mensalidade" && p.status === "em_analise");
-  const mensalidadeOk = mensalidade.acessoLiberado || mensalidadeAvisada;
+  const mensalidadeOk = mensalidade.acessoLiberado;
   if (ehMensalista && !mensalidadeOk) {
-    return { tipo: "mensalidade_pendente", primeiroPagamento: !aluno.validadeMensalidade };
+    return {
+      tipo: "mensalidade_pendente",
+      primeiroPagamento: !aluno.validadeMensalidade,
+      emAnalise: meusPagamentos.some((p) => p.tipo === "mensalidade" && p.status === "em_analise"),
+    };
   }
 
   // Dia extra: todo mundo paga diária, mensalista ou não

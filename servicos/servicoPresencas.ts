@@ -25,12 +25,19 @@ async function conferir(aluno: Usuario, aula: Aula) {
   if (!aulaAtual) throw new Error("Esta aula não existe mais");
   const situacao = avaliarPresenca(aulaAtual, alunoAtual ?? aluno, presencas, pagamentos, config);
 
+  const aguardando =
+    (situacao.tipo === "bloqueada" && !situacao.emAtraso.length) ||
+    (situacao.tipo === "mensalidade_pendente" && situacao.emAnalise);
   const mensagens: Partial<Record<typeof situacao.tipo, string>> = {
     confirmada: "Sua presença já está marcada nesta aula",
     aula_cancelada: "Esta aula foi cancelada",
     encerrada: "Esta aula já terminou",
-    bloqueada: "Você tem Day Use em atraso. Pague para marcar presença",
-    mensalidade_pendente: "Sua mensalidade está em aberto. Pague para marcar presença",
+    bloqueada: aguardando
+      ? "Seu PIX está em análise. A presença libera quando o professor confirmar"
+      : "Você tem Day Use em atraso. Pague para marcar presença",
+    mensalidade_pendente: aguardando
+      ? "Seu PIX está em análise. A presença libera quando o professor confirmar"
+      : "Sua mensalidade está em aberto. Pague para marcar presença",
   };
   if (situacao.tipo !== "livre_mensalista" && situacao.tipo !== "day_use") {
     throw new Error(mensagens[situacao.tipo] ?? "Não foi possível marcar presença");

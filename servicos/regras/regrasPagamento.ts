@@ -31,6 +31,21 @@ export function cobrancasEmAtraso(pagamentos: Pagamento[], hoje: DataISO = hojeI
   return cobrancasEmAberto(pagamentos).filter((p) => estaEmAtraso(p, hoje));
 }
 
+/**
+ * Day Use vencido que ainda segura novas presenças: o que não foi pago
+ * ("pendente") e também o PIX avisado que o professor ainda não confirmou
+ * ("em_analise"). Só libera depois da confirmação.
+ */
+export function cobrancasQueBloqueiam(pagamentos: Pagamento[], hoje: DataISO = hojeISO()) {
+  const vencidas = pagamentos.filter(
+    (p) => p.tipo === "day_use" && !!p.vencimento && p.vencimento < hoje,
+  );
+  return {
+    emAtraso: cobrancasEmAtraso(vencidas, hoje),
+    emAnalise: vencidas.filter((p) => p.status === "em_analise"),
+  };
+}
+
 export type SituacaoCobranca = "pago" | "em_analise" | "em_atraso" | "a_pagar" | "cancelado" | "recusado";
 
 /** Situação de uma cobrança para exibir na tela */

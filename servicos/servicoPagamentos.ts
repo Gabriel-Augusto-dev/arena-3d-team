@@ -1,4 +1,5 @@
 import { banco, type OperacaoLote } from "@/lib/banco";
+import { chamarApi, ErroApi } from "@/lib/api/cliente";
 import type { FormaPagamento, Pagamento, Turma, Usuario } from "@/tipos";
 import { formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
@@ -62,8 +63,21 @@ export async function informarPagamentoDayUse(aluno: Usuario, cobrancas: Pagamen
   ]);
 }
 
-/** Aluno avisa que pagou a mensalidade via PIX */
+/**
+ * Aluno avisa que pagou a mensalidade via PIX. Quem grava é o servidor
+ * (/api/pagamentos/mensalidade), que calcula o valor certo (turma ou associado).
+ * Se o servidor estiver sem as credenciais do Firebase Admin, grava pelo app.
+ */
 export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma, observacaoAluno = "") {
+  try {
+    const { pagamentoId } = await chamarApi<{ pagamentoId: string }>("/api/pagamentos/mensalidade", {
+      observacaoAluno,
+    });
+    return pagamentoId;
+  } catch (erro) {
+    if (!(erro instanceof ErroApi) || (erro.status !== 503 && erro.status !== 404)) throw erro;
+  }
+
   const id = banco.novoId("pagamentos");
   const valor = valorMensalidadeDoAluno(aluno, turma, await obterConfiguracoes());
   await banco.lote([

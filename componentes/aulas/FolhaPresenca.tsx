@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck2, Clock, Lock, MapPin, Sparkles, Ticket, TriangleAlert, Users } from "lucide-react";
+import { CalendarCheck2, Clock, Hourglass, Lock, MapPin, Sparkles, Ticket, TriangleAlert, Users } from "lucide-react";
 import type { AulaDoAluno } from "@/ganchos/useAgendaAluno";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao, BotaoLink } from "@/componentes/interface/Botao";
@@ -88,6 +88,18 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
       <Botao variante="destaque" tamanho="grande" larguraTotal carregando={enviando} onClick={marcar}>
         Marcar presença
       </Botao>
+    );
+  } else if (situacao.tipo === "mensalidade_pendente" && situacao.emAnalise) {
+    rodape = (
+      <BotaoLink href="/aluno/pagamentos" variante="secundario" tamanho="grande" larguraTotal>
+        Ver meus pagamentos
+      </BotaoLink>
+    );
+  } else if (situacao.tipo === "bloqueada" && !situacao.emAtraso.length) {
+    rodape = (
+      <BotaoLink href="/aluno/pagamentos" variante="secundario" tamanho="grande" larguraTotal>
+        Ver meus pagamentos
+      </BotaoLink>
     );
   } else if (situacao.tipo === "mensalidade_pendente") {
     rodape = (
@@ -191,7 +203,16 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
             </div>
           )}
 
-          {situacao.tipo === "mensalidade_pendente" && (
+          {situacao.tipo === "mensalidade_pendente" && situacao.emAnalise && (
+            <Mensagem
+              icone={Hourglass}
+              tom="amarelo"
+              titulo="Aguardando confirmação"
+              texto="Seu PIX da mensalidade está em análise. A presença libera assim que o professor confirmar o pagamento."
+            />
+          )}
+
+          {situacao.tipo === "mensalidade_pendente" && !situacao.emAnalise && (
             <Mensagem
               icone={Lock}
               tom="vermelho"
@@ -204,7 +225,16 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
             />
           )}
 
-          {situacao.tipo === "bloqueada" && (
+          {situacao.tipo === "bloqueada" && !situacao.emAtraso.length && (
+            <Mensagem
+              icone={Hourglass}
+              tom="amarelo"
+              titulo="Aguardando confirmação"
+              texto="Seu PIX do Day Use está em análise. A presença libera assim que o professor confirmar o pagamento."
+            />
+          )}
+
+          {situacao.tipo === "bloqueada" && situacao.emAtraso.length > 0 && (
             <Mensagem
               icone={Lock}
               tom="vermelho"
@@ -333,7 +363,7 @@ function Mensagem({
   texto,
 }: {
   icone: typeof Ticket;
-  tom: "verde" | "azul" | "vermelho" | "cinza";
+  tom: "verde" | "azul" | "vermelho" | "amarelo" | "cinza";
   titulo: string;
   texto: string;
 }) {
@@ -341,6 +371,7 @@ function Mensagem({
     verde: "bg-ok-fundo text-ok",
     azul: "bg-marinho-100 text-marinho-800",
     vermelho: "bg-erro-fundo text-erro",
+    amarelo: "bg-alerta-fundo text-alerta",
     cinza: "bg-white text-suave ring-1 ring-linha",
   };
   return (

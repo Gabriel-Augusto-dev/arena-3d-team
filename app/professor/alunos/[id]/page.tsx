@@ -339,11 +339,12 @@ export default function DetalheAluno() {
 /** Liga/desliga "associado" (administrador: qualquer aluno; auxiliar: os dele) */
 function InterruptorAssociado({ aluno }: { aluno: Usuario }) {
   const avisos = useAvisos();
+  const { ehAdministrador } = useAutenticacao();
   const [salvando, setSalvando] = useState(false);
   const alternar = async () => {
     setSalvando(true);
     try {
-      await definirAssociado(aluno, !aluno.associado);
+      await definirAssociado(aluno, !aluno.associado, ehAdministrador);
     } catch (erro) {
       avisos.erro(erro);
     } finally {
