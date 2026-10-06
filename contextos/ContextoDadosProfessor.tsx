@@ -107,7 +107,8 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
     const ordenarPorNome = (a: Usuario, b: Usuario) => a.nome.localeCompare(b.nome, "pt-BR");
     const todasTurmas = mapaDeTurmas(turmas.dados);
     let listaTurmas = turmas.dados;
-    let listaAulas = aulas.dados;
+    // Aula de turma que não existe mais (turma excluída) não aparece
+    let listaAulas = aulas.dados.filter((a) => todasTurmas.has(a.turmaId));
     let listaPresencas = presencas.dados;
     const porId = new Map([...pagamentosRecentes.dados, ...pagamentosAbertos.dados].map((p) => [p.id, p]));
     const todosPagamentos = [...porId.values()];
@@ -118,7 +119,7 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
     const restrito = !ehAdministrador;
     if (restrito) {
       listaTurmas = turmasDoResponsavel(turmas.dados, usuario.id);
-      listaAulas = aulasDoResponsavel(aulas.dados, todasTurmas, usuario.id);
+      listaAulas = aulasDoResponsavel(listaAulas, todasTurmas, usuario.id);
       const idsAulas = new Set(listaAulas.map((a) => a.id));
       const idsTurmas = new Set(listaTurmas.map((t) => t.id));
       listaPresencas = presencas.dados.filter((p) => idsAulas.has(p.aulaId));

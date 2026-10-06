@@ -41,5 +41,21 @@ export async function removerTurma(turma: Turma) {
   if (vinculados.length) {
     throw new Error(`Ainda há ${vinculados.length} aluno(s) nesta turma. Mude-os de turma antes de excluir`);
   }
-  await banco.remover("turmas", turma.id);
+  // Aulas já geradas da turma: as de hoje em diante saem junto (um filtro só, sem índice)
+  const hoje = hojeISO();
+  const [aulas, presencas] = await Promise.all([
+    banco.listar("aulas", [onde("turmaId", "==", turma.id)]),
+    banco.listar("presencas", [onde("turmaId", "==", turma.id)]),
+  ]);
+  const marcadas = presencas.filter((p) => p.status === "confirmada" && p.dataAula >= hoje);
+  if (marcadas.length) {
+    throw new Error(
+      `Há ${marcadas.length} presença(s) marcada(s) em aulas futuras desta turma. Cancele essas aulas antes de excluir`,
+    );
+  }
+  const futuras = aulas.filter((a) => a.data >= hoje);
+  await banco.lote([
+    ...futuras.map((a) => ({ tipo: "remover" as const, colecao: "aulas" as const, id: a.id })),
+    { tipo: "remover", colecao: "turmas", id: turma.id },
+  ]);
 }

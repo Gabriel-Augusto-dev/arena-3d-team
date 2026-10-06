@@ -23,7 +23,7 @@ type Etapa = "detalhes" | "day_use_marcado" | "experimental_marcada";
  * experimental, pagar agora ou depois e desmarcar.
  */
 export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(): void }) {
-  const { aluno, configuracoes, meusPagamentos } = useDadosAluno();
+  const { aluno, configuracoes, meusPagamentos, registrarLocal } = useDadosAluno();
   const avisos = useAvisos();
   const [etapa, setEtapa] = useState<Etapa>("detalhes");
   const [enviando, setEnviando] = useState(false);
@@ -44,7 +44,10 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
 
   const marcar = () =>
     executar(
-      () => marcarPresenca(aluno, aula),
+      async () => {
+        const { presenca, cobranca } = await marcarPresenca(aluno, aula);
+        registrarLocal({ presencas: [presenca], pagamentos: cobranca ? [cobranca] : [] });
+      },
       () => {
         if (situacao.tipo === "day_use") setEtapa("day_use_marcado");
         else {
@@ -195,7 +198,10 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                   preco="Grátis"
                   descricao="Uma vez só, para conhecer o treino."
                   aoEscolher={() =>
-                    executar(() => marcarExperimental(aluno, aula, turma), () => setEtapa("experimental_marcada"))
+                    executar(
+                      async () => registrarLocal({ presencas: [await marcarExperimental(aluno, aula, turma)] }),
+                      () => setEtapa("experimental_marcada"),
+                    )
                   }
                   carregando={enviando}
                 />
@@ -259,7 +265,7 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                   carregando={enviando}
                   onClick={() =>
                     executar(
-                      () => desmarcarPresenca(situacao.presenca),
+                      async () => registrarLocal({ presencas: [await desmarcarPresenca(situacao.presenca)] }),
                       () => {
                         avisos.sucesso("Presença desmarcada");
                         aoFechar();

@@ -14,7 +14,7 @@ import { marcarPresenca } from "@/servicos/servicoPresencas";
  * Day Use / bloqueado: abre a folha com os detalhes.
  */
 export function BotaoPresenca({ item, aoAbrir }: { item: AulaDoAluno; aoAbrir(): void }) {
-  const { aluno } = useDadosAluno();
+  const { aluno, registrarLocal } = useDadosAluno();
   const avisos = useAvisos();
   const [marcando, setMarcando] = useState(false);
   const { situacao } = item;
@@ -52,7 +52,8 @@ export function BotaoPresenca({ item, aoAbrir }: { item: AulaDoAluno; aoAbrir():
         onClick={async () => {
           setMarcando(true);
           try {
-            await marcarPresenca(aluno, item.aula);
+            const { presenca, cobranca } = await marcarPresenca(aluno, item.aula);
+            registrarLocal({ presencas: [presenca], pagamentos: cobranca ? [cobranca] : [] });
             avisos.sucesso(`Presença marcada: ${item.turma?.nome ?? "aula"} às ${item.aula.horarioInicio}`);
           } catch (erro) {
             avisos.erro(erro);

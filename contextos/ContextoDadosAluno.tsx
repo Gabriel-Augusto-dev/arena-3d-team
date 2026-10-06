@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo } from "react";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import { onde } from "@/lib/banco";
 import { useColecao } from "@/ganchos/useColecao";
 import { useConfiguracoes } from "@/ganchos/useConfiguracoes";
@@ -32,7 +32,30 @@ interface DadosAluno {
   situacaoMensalidade: SituacaoMensalidade;
   mensalidadeEmAnalise: Pagamento | null;
   carregando: boolean;
+  /**
+   * Mostra na hora o que o aluno acabou de gravar (presença, cobrança),
+   * sem esperar o tempo real do banco devolver.
+   */
+  registrarLocal(novos: { presencas?: Presenca[]; pagamentos?: Pagamento[] }): void;
 }
+
+type ComVersao = { id: string; atualizadoEm: string };
+
+/** Junta o que veio do banco com o que o aluno acabou de gravar (vale o mais novo) */
+function mesclar<T extends ComVersao>(servidor: T[], locais: T[]): T[] {
+  if (!locais.length) return servidor;
+  const porId = new Map(servidor.map((d) => [d.id, d]));
+  for (const local of locais) {
+    const doBanco = porId.get(local.id);
+    if (!doBanco || local.atualizadoEm > doBanco.atualizadoEm) porId.set(local.id, local);
+  }
+  return [...porId.values()];
+}
+
+const substituir = <T extends ComVersao>(atuais: T[], novos: T[] = []) => [
+  ...atuais.filter((a) => !novos.some((n) => n.id === a.id)),
+  ...novos,
+];
 
 const ContextoDadosAluno = createContext<DadosAluno | null>(null);
 
@@ -62,10 +85,25 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
   ]);
   const { configuracoes, carregando: carregandoConfig } = useConfiguracoes();
 
+  const [locais, setLocais] = useState<{ presencas: Presenca[]; pagamentos: Pagamento[] }>({
+    presencas: [],
+    pagamentos: [],
+  });
+  const registrarLocal = useCallback(
+    (novos: { presencas?: Presenca[]; pagamentos?: Pagamento[] }) =>
+      setLocais((atuais) => ({
+        presencas: substituir(atuais.presencas, novos.presencas),
+        pagamentos: substituir(atuais.pagamentos, novos.pagamentos),
+      })),
+    [],
+  );
+
   const valor = useMemo<DadosAluno>(() => {
     const turmaPorId = mapaDeTurmas(turmas.dados);
     const porId = new Map([...pagamentosRecentes.dados, ...pagamentosAbertos.dados].map((p) => [p.id, p]));
-    const meusPagamentos = [...porId.values()].sort((a, b) => b.criadoEm.localeCompare(a.criadoEm));
+    const meusPagamentos = mesclar([...porId.values()], locais.pagamentos).sort((a, b) =>
+      b.criadoEm.localeCompare(a.criadoEm),
+    );
     return {
       aluno,
       turmas: turmas.dados,
@@ -75,7 +113,7 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
         // Dia extra aparece mesmo que seja daqui a mais de 2 semanas
         .filter((a) => (a.data <= limite || ehDiaExtra(a)) && turmaPorId.has(a.turmaId))
         .sort((a, b) => (a.data + a.horarioInicio).localeCompare(b.data + b.horarioInicio)),
-      minhasPresencas: presencas.dados,
+      minhasPresencas: mesclar(presencas.dados, locais.presencas),
       meusPagamentos,
       cobrancasAbertas: cobrancasEmAberto(meusPagamentos),
       cobrancasAtrasadas: cobrancasEmAtraso(meusPagamentos),
@@ -90,8 +128,21 @@ export function ProvedorDadosAluno({ children }: { children: React.ReactNode }) 
         pagamentosRecentes.carregando ||
         pagamentosAbertos.carregando ||
         carregandoConfig,
+      registrarLocal,
     };
-  }, [aluno, turmas, aulas, presencas, pagamentosRecentes, pagamentosAbertos, configuracoes, carregandoConfig, limite]);
+  }, [
+    aluno,
+    turmas,
+    aulas,
+    presencas,
+    pagamentosRecentes,
+    pagamentosAbertos,
+    configuracoes,
+    carregandoConfig,
+    limite,
+    locais,
+    registrarLocal,
+  ]);
 
   return <ContextoDadosAluno.Provider value={valor}>{children}</ContextoDadosAluno.Provider>;
 }

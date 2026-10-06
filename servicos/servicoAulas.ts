@@ -2,7 +2,7 @@ import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Presenca, Turma, Usuario } from "@/tipos";
 import { adicionarDias, diaDaSemana, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { operacaoNotificarAluno } from "./servicoNotificacoes";
-import { TURMA_DIA_EXTRA } from "./regras/regrasAula";
+import { ehDiaExtra, TURMA_DIA_EXTRA } from "./regras/regrasAula";
 
 export const DIAS_AGENDA_AUTOMATICA = 21;
 
@@ -92,10 +92,17 @@ export async function criarDiaExtra(
  * Cancela a aula, desmarca as presenças, cancela cobranças de Day Use
  * ainda não pagas e avisa quem tinha presença + os mensalistas da turma.
  */
-export async function cancelarAula(aula: Aula, turma: Turma, motivo: string, presencas: Presenca[], alunos: Usuario[]) {
+export async function cancelarAula(
+  aula: Aula,
+  turma: Turma | undefined,
+  motivo: string,
+  presencas: Presenca[],
+  alunos: Usuario[],
+) {
   const quando = `${formatarDataRelativa(aula.data).toLowerCase()} às ${aula.horarioInicio}`;
+  const nomeTurma = turma?.nome ?? (ehDiaExtra(aula) ? "Dia extra" : "aula");
   const ativas = presencas.filter((p) => p.aulaId === aula.id && p.status === "confirmada");
-  const mensalistas = alunos.filter((a) => a.plano === "mensalista" && a.turmaId === turma.id && a.ativo);
+  const mensalistas = alunos.filter((a) => a.plano === "mensalista" && a.turmaId === aula.turmaId && a.ativo);
   const avisar = new Set([...ativas.map((p) => p.alunoId), ...mensalistas.map((m) => m.id)]);
 
   const operacoes: OperacaoLote[] = [
@@ -125,7 +132,7 @@ export async function cancelarAula(aula: Aula, turma: Turma, motivo: string, pre
       operacaoNotificarAluno(alunoId, {
         tipo: "aula_cancelada",
         titulo: "Aula cancelada",
-        mensagem: `A aula da turma ${turma.nome} (${quando}) foi cancelada.${motivo ? ` Motivo: ${motivo}.` : ""}`,
+        mensagem: `A aula da turma ${nomeTurma} (${quando}) foi cancelada.${motivo ? ` Motivo: ${motivo}.` : ""}`,
         link: "/aluno/aulas",
       }),
     );

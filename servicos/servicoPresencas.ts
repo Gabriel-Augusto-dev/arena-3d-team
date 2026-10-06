@@ -63,16 +63,30 @@ function montarPresenca(aluno: Usuario, aula: Aula, tipo: Presenca["tipo"], paga
  * mensalista em dia → sem custo; senão → Day Use (gera cobrança a pagar).
  * Retorna o pagamento criado (Day Use), para a tela oferecer o PIX.
  */
-export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<{ pagamentoId: string | null }> {
+export interface PresencaMarcada {
+  pagamentoId: string | null;
+  /** Documentos gravados (a tela mostra na hora, sem esperar o tempo real) */
+  presenca: Presenca;
+  cobranca: Pagamento | null;
+}
+
+/** Documento completo, igual ao que foi gravado, para mostrar na tela na hora */
+function comoGravado<T extends object>(id: string, dados: T): T & { id: string; criadoEm: string; atualizadoEm: string } {
+  const agora = new Date().toISOString();
+  return { ...dados, id, criadoEm: agora, atualizadoEm: agora };
+}
+
+export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<PresencaMarcada> {
   const { situacao, config } = await conferir(aluno, aula);
   const presencaId = banco.novoId("presencas");
 
   if (situacao.tipo === "livre_mensalista") {
     // Em lote (sem ler antes): o documento é novo e o aluno não pode ler presenças de outros
-    await banco.lote([
-      { tipo: "definir", colecao: "presencas", id: presencaId, dados: montarPresenca(aluno, aula, "mensalista", null) },
-    ]);
-    return { pagamentoId: null };
+    const dados = montarPresenca(aluno, aula, "mensalista", null);
+    // Versão local com horário de ANTES da gravação: assim que o banco devolver, vale a do banco
+    const presenca = comoGravado(presencaId, dados);
+    await banco.lote([{ tipo: "definir", colecao: "presencas", id: presencaId, dados }]);
+    return { pagamentoId: null, presenca, cobranca: null };
   }
 
   const pagamentoId = banco.novoId("pagamentos");
@@ -96,26 +110,30 @@ export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<{ paga
     confirmadoEm: null,
   };
 
+  const dadosPresenca = montarPresenca(aluno, aula, "day_use", pagamentoId);
+  const marcada: PresencaMarcada = {
+    pagamentoId,
+    presenca: comoGravado(presencaId, dadosPresenca),
+    cobranca: comoGravado(pagamentoId, cobranca),
+  };
   await banco.lote([
-    { tipo: "definir", colecao: "presencas", id: presencaId, dados: montarPresenca(aluno, aula, "day_use", pagamentoId) },
+    { tipo: "definir", colecao: "presencas", id: presencaId, dados: dadosPresenca },
     { tipo: "definir", colecao: "pagamentos", id: pagamentoId, dados: cobranca },
   ]);
-  return { pagamentoId };
+  return marcada;
 }
 
 /** Aula experimental: gratuita, uma única vez */
-export async function marcarExperimental(aluno: Usuario, aula: Aula, turma: Turma | undefined) {
+export async function marcarExperimental(aluno: Usuario, aula: Aula, turma: Turma | undefined): Promise<Presenca> {
   const { situacao } = await conferir(aluno, aula);
   if (situacao.tipo !== "day_use" || !situacao.podeExperimental) {
     throw new Error("A aula experimental já foi usada");
   }
+  const presencaId = banco.novoId("presencas");
+  const dados = montarPresenca(aluno, aula, "experimental", null);
+  const local = comoGravado(presencaId, dados);
   await banco.lote([
-    {
-      tipo: "definir",
-      colecao: "presencas",
-      id: banco.novoId("presencas"),
-      dados: montarPresenca(aluno, aula, "experimental", null),
-    },
+    { tipo: "definir", colecao: "presencas", id: presencaId, dados },
     { tipo: "atualizar", colecao: "usuarios", id: aluno.id, dados: { usouExperimental: true } },
     operacaoNotificarProfessores({
       tipo: "experimental_agendada",
@@ -124,10 +142,12 @@ export async function marcarExperimental(aluno: Usuario, aula: Aula, turma: Turm
       link: "/professor",
     }),
   ]);
+  return local;
 }
 
 /** Desmarca a presença (antes da aula começar). Cancela a cobrança se ainda não foi paga */
-export async function desmarcarPresenca(presenca: Presenca) {
+export async function desmarcarPresenca(presenca: Presenca): Promise<Presenca> {
+  const local: Presenca = { ...presenca, status: "cancelada", atualizadoEm: new Date().toISOString() };
   const operacoes: OperacaoLote[] = [
     { tipo: "atualizar", colecao: "presencas", id: presenca.id, dados: { status: "cancelada" } },
   ];
@@ -147,4 +167,5 @@ export async function desmarcarPresenca(presenca: Presenca) {
     operacoes.push({ tipo: "atualizar", colecao: "usuarios", id: presenca.alunoId, dados: { usouExperimental: false } });
   }
   await banco.lote(operacoes);
+  return local;
 }

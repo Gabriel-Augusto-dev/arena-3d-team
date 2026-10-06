@@ -102,7 +102,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
                 executar(
                   "cancelar",
                   async () => {
-                    await cancelarAula(aula, turma!, motivo.trim(), presencas, alunos);
+                    await cancelarAula(aula, turma, motivo.trim(), presencas, alunos);
                     setCancelando(false);
                   },
                   "Aula cancelada. Alunos avisados",

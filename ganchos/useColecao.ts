@@ -31,13 +31,36 @@ export function useColecao<K extends ChaveColecao>(
   useEffect(() => {
     if (!ativo) return;
     const chave = `${colecao}|${chaveFiltros}|${limite ?? ""}`;
-    return banco.observarColecao(
-      colecao,
-      JSON.parse(chaveFiltros) as Filtro[],
-      (dados) => setEstado({ dados, carregando: false, erro: null, chave }),
-      (erro) => setEstado((anterior) => ({ ...anterior, carregando: false, erro, chave })),
-      { limite },
-    );
+    let cancelar = () => {};
+    let espera: ReturnType<typeof setTimeout> | undefined;
+    let tentativas = 0;
+    let encerrado = false;
+
+    // Se a escuta em tempo real cair (rede, sessão renovando), volta a escutar sozinha
+    const escutar = () => {
+      cancelar = banco.observarColecao(
+        colecao,
+        JSON.parse(chaveFiltros) as Filtro[],
+        (dados) => {
+          tentativas = 0;
+          setEstado({ dados, carregando: false, erro: null, chave });
+        },
+        (erro) => {
+          setEstado((anterior) => ({ ...anterior, carregando: false, erro, chave }));
+          if (encerrado || tentativas >= 3) return;
+          tentativas += 1;
+          espera = setTimeout(() => !encerrado && escutar(), 2000 * tentativas);
+        },
+        { limite },
+      );
+    };
+    escutar();
+
+    return () => {
+      encerrado = true;
+      clearTimeout(espera);
+      cancelar();
+    };
   }, [colecao, chaveFiltros, ativo, limite]);
 
   // Enquanto os filtros mudam, mostra carregando em vez de dados antigos
