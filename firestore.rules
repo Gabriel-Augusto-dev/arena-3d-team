@@ -94,7 +94,6 @@ service cloud.firestore {
           || (request.resource.data.turmaId is string
             && request.resource.data.get('turmasIds', []) == [request.resource.data.turmaId]))
         && request.resource.data.get('validades', {}).size() == 0
-        && request.resource.data.usouExperimental == false
         && request.resource.data.get('associado', false) == false
         // a turma escolhida precisa existir e estar ativa
         && (request.resource.data.turmaId == null || get(caminho('turmas', request.resource.data.turmaId)).data.ativa == true)
@@ -102,9 +101,7 @@ service cloud.firestore {
 
       allow update: if ehProfessor()
         // qualquer pessoa edita os próprios dados básicos
-        || (ehDono(uid) && soAltera(['nome', 'whatsapp', 'dataNascimento', 'percentualProprio', 'atualizadoEm']))
-        // aluno agenda / desmarca a aula experimental
-        || (ehDono(uid) && ehAluno() && soAltera(['usouExperimental', 'atualizadoEm']));
+        || (ehDono(uid) && soAltera(['nome', 'whatsapp', 'dataNascimento', 'percentualProprio', 'atualizadoEm']));
 
       allow delete: if ehProfessor();
     }
@@ -157,7 +154,7 @@ service cloud.firestore {
       allow read: if ehEquipe()
         || (logado() && (resource == null || resource.data.alunoId == request.auth.uid));
 
-      // Aluno marca presença em nome dele. O tipo (mensalista / day_use / experimental)
+      // Aluno marca presença em nome dele. O tipo (mensalista / day_use)
       // é decidido no app; o bloqueio por Day Use em atraso também é conferido no app.
       allow create: if ehProfessor() || (
         ehAluno()
@@ -173,10 +170,6 @@ service cloud.firestore {
             && getAfter(caminho('pagamentos', request.resource.data.pagamentoId)).data.alunoId == request.auth.uid
             && getAfter(caminho('pagamentos', request.resource.data.pagamentoId)).data.status == 'pendente'
             && getAfter(caminho('pagamentos', request.resource.data.pagamentoId)).data.presencaId == id)
-          // experimental: só uma vez (marca usouExperimental = true no mesmo lote)
-          || (request.resource.data.tipo == 'experimental'
-            && usuarioAtual().usouExperimental == false
-            && getAfter(caminho('usuarios', request.auth.uid)).data.usouExperimental == true)
         )
       );
 
@@ -254,7 +247,7 @@ service cloud.firestore {
 
       allow read: if destinatario();
 
-      // Aluno só cria avisos para o professor (PIX avisado, experimental, cadastro novo),
+      // Aluno só cria avisos para o professor (PIX avisado, cadastro novo),
       // sempre com link interno do app; o professor avisa qualquer um
       allow create: if ehProfessor() || (
         ehAluno()

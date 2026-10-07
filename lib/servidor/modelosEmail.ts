@@ -126,7 +126,7 @@ export function emailBoasVindas({
   const comoFunciona =
     plano === "mensalista"
       ? "Você escolheu ser <strong>mensalista</strong>. Assim que o professor confirmar o primeiro pagamento, suas aulas da turma ficam liberadas sem custo. Até lá, dá para treinar pagando o Day Use."
-      : "Você vai treinar com <strong>Day Use</strong>: marca presença na aula que quiser e paga pelo PIX até a meia-noite do dia da aula. A primeira aula pode ser a <strong>experimental gratuita</strong>.";
+      : "Você vai treinar com <strong>Day Use</strong>: marca presença na aula que quiser e paga pelo PIX até a meia-noite do dia da aula.";
   return {
     para: email,
     nomeDestinatario: nome,

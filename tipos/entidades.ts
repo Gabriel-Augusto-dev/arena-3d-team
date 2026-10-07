@@ -26,7 +26,7 @@ export type Horario = string;
  */
 export type PerfilUsuario = "aluno" | "professor" | "auxiliar";
 
-/** mensalista = vinculado a uma turma; avulso = só Day Use / experimental */
+/** mensalista = vinculado a uma turma; avulso = só Day Use */
 export type PlanoAluno = "mensalista" | "avulso";
 
 /** Coleção `usuarios` — o id do documento é o uid do Firebase Auth */
@@ -50,8 +50,6 @@ export interface Usuario {
    */
   turmasIds?: string[];
   validades?: Record<string, DataISO | null>;
-  /** A aula experimental gratuita só pode ser usada uma vez */
-  usouExperimental: boolean;
   /** Mensalista associado: paga a mensalidade de associado definida em Ajustes */
   associado?: boolean;
   ativo: boolean;
@@ -123,9 +121,8 @@ export interface Aula {
  * vem em cada dia.
  *  - mensalista   → mensalidade em dia, sem custo por aula
  *  - day_use      → gera uma cobrança (pode pagar depois da aula)
- *  - experimental → gratuita, uma única vez
  */
-export type TipoPresenca = "mensalista" | "day_use" | "experimental";
+export type TipoPresenca = "mensalista" | "day_use";
 
 export type StatusPresenca = "confirmada" | "cancelada";
 
@@ -204,7 +201,6 @@ export type TipoNotificacao =
   | "pagamento_recusado"
   | "aula_cancelada"
   | "nova_solicitacao"
-  | "experimental_agendada"
   | "aviso";
 
 /** Coleção `notificacoes` */

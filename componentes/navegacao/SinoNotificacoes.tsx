@@ -9,7 +9,6 @@ import {
   CircleCheck,
   CircleX,
   Inbox,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { onde } from "@/lib/banco";
@@ -26,7 +25,6 @@ const icones: Record<TipoNotificacao, { icone: LucideIcon; cor: string }> = {
   pagamento_recusado: { icone: CircleX, cor: "bg-erro-fundo text-erro" },
   aula_cancelada: { icone: CalendarX, cor: "bg-erro-fundo text-erro" },
   nova_solicitacao: { icone: Inbox, cor: "bg-alerta-fundo text-alerta" },
-  experimental_agendada: { icone: Sparkles, cor: "bg-marinho-100 text-marinho-700" },
   aviso: { icone: Bell, cor: "bg-marinho-100 text-marinho-700" },
 };
 
@@ -37,7 +35,7 @@ export function SinoNotificacoes({ claro = false }: { claro?: boolean }) {
   const router = useRouter();
   const [aberta, setAberta] = useState(false);
 
-  // O administrador recebe os avisos da arena (PIX, cadastros, experimentais);
+  // O administrador recebe os avisos da arena (PIX, cadastros);
   // aluno e professor auxiliar recebem só os avisos enviados para eles
   const filtro =
     usuario.perfil === "professor" ? [onde("paraPerfil", "==", "professor")] : [onde("usuarioId", "==", usuario.id)];

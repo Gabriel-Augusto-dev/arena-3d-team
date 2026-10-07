@@ -131,9 +131,6 @@ export async function cancelarAula(
         });
       }
     }
-    if (p.tipo === "experimental") {
-      operacoes.push({ tipo: "atualizar", colecao: "usuarios", id: p.alunoId, dados: { usouExperimental: false } });
-    }
   }
 
   for (const alunoId of avisar) {
@@ -169,9 +166,6 @@ export async function removerPresenca(presenca: Presenca) {
         dados: { status: "cancelado", motivoRecusa: "Presença removida pelo professor" },
       });
     }
-  }
-  if (presenca.tipo === "experimental") {
-    operacoes.push({ tipo: "atualizar", colecao: "usuarios", id: presenca.alunoId, dados: { usouExperimental: false } });
   }
   await banco.lote(operacoes);
 }

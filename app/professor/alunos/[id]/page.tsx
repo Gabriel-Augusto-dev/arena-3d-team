@@ -214,7 +214,6 @@ export default function DetalheAluno() {
               ) : (
                 <LinhaInfo rotulo="Turma" valor="Sem turma fixa" />
               )}
-              <LinhaInfo rotulo="Experimental" valor={aluno.usouExperimental ? "Já usou" : "Disponível"} />
               {aluno.plano === "mensalista" && (
                 <div className="flex items-center justify-between gap-3 py-2.5">
                   <span className="text-[15px] text-suave">Associado</span>

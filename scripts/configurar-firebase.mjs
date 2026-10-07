@@ -112,7 +112,6 @@ async function principal() {
       plano: "avulso",
       turmaId: null,
       validadeMensalidade: null,
-      usouExperimental: true,
       ativo: true,
       observacoes: "",
       criadoEm: existente.data()?.criadoEm ?? agora(),

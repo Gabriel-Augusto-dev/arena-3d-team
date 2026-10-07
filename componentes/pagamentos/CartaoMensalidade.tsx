@@ -22,8 +22,7 @@ export function CartaoMensalidade() {
           <Selo tom="azul">Day Use</Selo>
         </div>
         <p className="mt-2 text-[15px] text-marinho-900/80">
-          Treine em qualquer aula por {formatarMoeda(configuracoes.valorDayUse)}
-          {aluno.usouExperimental ? "." : ", ou faça sua aula experimental grátis."}
+          Treine em qualquer aula por {formatarMoeda(configuracoes.valorDayUse)}.
         </p>
         {configuracoes.whatsappContato && (
           <a

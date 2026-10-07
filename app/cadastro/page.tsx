@@ -72,7 +72,7 @@ export default function PaginaCadastro() {
   return (
     <MolduraAcesso
       titulo="Primeira vez aqui?"
-      subtitulo="Crie sua conta e ganhe uma aula experimental gratuita."
+      subtitulo="Crie sua conta e marque presença nas aulas pelo celular."
     >
       <h2 className="font-titulo text-3xl font-extrabold italic uppercase">Criar conta</h2>
       <p className="mt-1 text-[15px] text-suave">Seus dados ficam só com o professor.</p>

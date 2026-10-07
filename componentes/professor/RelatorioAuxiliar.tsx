@@ -420,8 +420,6 @@ function CartaoAulaRelatorio({
                 </span>
                 {rotulo ? (
                   <Selo tom={rotulo.tom}>{rotulo.rotulo}</Selo>
-                ) : p.tipo === "experimental" ? (
-                  <Selo tom="azul">Experimental</Selo>
                 ) : (
                   <Selo tom="escuro">Mensalista</Selo>
                 )}

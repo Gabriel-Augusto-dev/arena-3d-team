@@ -23,7 +23,6 @@ export async function cadastrarAuxiliar(dados: DadosAuxiliar): Promise<Resultado
     plano: "avulso",
     turmaId: null,
     validadeMensalidade: null,
-    usouExperimental: true,
     ativo: true,
     observacoes: "",
   });

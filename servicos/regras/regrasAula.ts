@@ -11,11 +11,10 @@ import { cobrancasQueBloqueiam } from "./regrasPagamento";
  *  - Day Use: marca presença e paga o valor (pode ser depois da aula).
  *  - Day Use não pago até a meia-noite do dia da aula fica em atraso e
  *    BLOQUEIA novas presenças até o professor confirmar o pagamento.
- *  - Experimental: gratuita, uma única vez.
  *  - Mensalista sem a mensalidade em dia não marca presença: só depois que
  *    o professor confirmar o pagamento (PIX avisado ainda não libera).
  *  - Dia extra (criado pelo professor quando quiser): TODOS pagam diária,
- *    inclusive mensalistas. Não vale aula experimental.
+ *    inclusive mensalistas.
  */
 
 /** Turma "virtual" das aulas de dia extra (não existe documento no banco) */
@@ -86,7 +85,7 @@ export type SituacaoPresenca =
   /** Mensalista com a mensalidade atrasada (ou sem o 1º pagamento): só marca depois da confirmação */
   | { tipo: "mensalidade_pendente"; primeiroPagamento: boolean; emAnalise: boolean }
   | { tipo: "livre_mensalista" }
-  | { tipo: "day_use"; motivo: MotivoDayUse; podeExperimental: boolean };
+  | { tipo: "day_use"; motivo: MotivoDayUse };
 
 /** Até quando dá para marcar presença: até a aula terminar */
 export const aulaEncerrada = (aula: Aula) => aulaJaComecou(aula.data, aula.horarioFim);
@@ -135,7 +134,7 @@ export function avaliarPresenca(
   }
 
   // Dia extra: todo mundo paga diária, mensalista ou não
-  if (ehDiaExtra(aula)) return { tipo: "day_use", motivo: "dia_extra", podeExperimental: false };
+  if (ehDiaExtra(aula)) return { tipo: "day_use", motivo: "dia_extra" };
 
   if (daTurma) return { tipo: "livre_mensalista" };
 
@@ -144,12 +143,7 @@ export function avaliarPresenca(
   const algumaEmDia = matriculas.some((m) => situacaoDaValidade(m.validade).acessoLiberado);
   if (algumaEmDia && configuracoes.mensalistaQualquerTurma) return { tipo: "livre_mensalista" };
 
-  const experimentalEmAberto = minhasPresencas.some((p) => p.tipo === "experimental" && presencaAtiva(p));
-  return {
-    tipo: "day_use",
-    motivo: !ehMensalista ? "avulso" : "outra_turma",
-    podeExperimental: !aluno.usouExperimental && !experimentalEmAberto,
-  };
+  return { tipo: "day_use", motivo: !ehMensalista ? "avulso" : "outra_turma" };
 }
 
 /** Presenças confirmadas de uma aula (lista do professor) */
@@ -177,5 +171,4 @@ export const ROTULOS_NIVEL: Record<Turma["nivel"], string> = {
 export const ROTULOS_TIPO_PRESENCA: Record<Presenca["tipo"], string> = {
   mensalista: "Mensalista",
   day_use: "Day Use",
-  experimental: "Experimental",
 };

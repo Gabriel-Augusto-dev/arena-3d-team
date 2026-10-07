@@ -1,6 +1,6 @@
 # 3D Team — Assessoria Esportiva
 
-Sistema web da 3D Team: presença nas aulas, Day Use, aula experimental, dia extra e mensalidades com PIX. Feito para o celular primeiro, mas funciona no computador. Roda no **Vercel** com **Firebase** (Authentication + Cloud Firestore) e manda e-mails pelo **Brevo**.
+Sistema web da 3D Team: presença nas aulas, Day Use, dia extra e mensalidades com PIX. Feito para o celular primeiro, mas funciona no computador. Roda no **Vercel** com **Firebase** (Authentication + Cloud Firestore) e manda e-mails pelo **Brevo**.
 
 ## Perfis
 
@@ -20,9 +20,9 @@ O administrador cadastra o auxiliar na página **Equipe**. O auxiliar recebe um 
 - **Equipe** (administrador): aulas, presenças, alunos e valores confirmados de cada auxiliar por período, com a porcentagem de repasse.
 - **Ganhos** (auxiliar): o mesmo relatório das aulas dele, com o campo da porcentagem que ele recebe.
 
-### Aluno associado
+### Mensalista associado
 
-O associado paga os valores de associado definidos em **Ajustes** (mensalidade e Day Use; em branco = valor normal). O administrador marca qualquer aluno como associado (ficha do aluno ou Editar); o auxiliar só os alunos dele (o servidor confere).
+Associado existe só para mensalista: ele paga a **Mensalidade associado** definida em **Ajustes** (em branco = valor normal da turma). O Day Use é igual para todos. O administrador marca qualquer mensalista como associado (ficha do aluno ou Editar); o auxiliar só os mensalistas dele (o servidor confere).
 
 ## Rodando no computador
 
@@ -139,7 +139,6 @@ O plano gratuito tem 50 mil leituras e 20 mil gravações por dia. O app foi fei
 | `plano` | texto | `mensalista` ou `avulso` (professor/auxiliar: `avulso`) |
 | `turmaId` | texto ou null | Turma do mensalista |
 | `validadeMensalidade` | texto ou null | Último dia pago |
-| `usouExperimental` | booleano | A experimental gratuita é uma só |
 | `ativo` | booleano | `false` = não entra mais |
 | `observacoes` | texto | Só a equipe vê |
 | `criadoEm`, `atualizadoEm` | texto | Data e hora |
@@ -148,7 +147,7 @@ O plano gratuito tem 50 mil leituras e 20 mil gravações por dia. O app foi fei
 
 **`aulas`** — ID `{turmaId}_{AAAA-MM-DD}` (dia extra: `dia_extra_{AAAA-MM-DD}`): `turmaId`, `data`, `horarioInicio`, `horarioFim`, `status` (`agendada`/`cancelada`), `motivoCancelamento`, `criadoEm`, `atualizadoEm`.
 
-**`presencas`** — ID automático: `aulaId`, `turmaId`, `dataAula`, `alunoId`, `alunoNome`, `tipo` (`mensalista`/`day_use`/`experimental`), `status` (`confirmada`/`cancelada`), `pagamentoId` (cobrança do Day Use ou null), `criadoEm`, `atualizadoEm`.
+**`presencas`** — ID automático: `aulaId`, `turmaId`, `dataAula`, `alunoId`, `alunoNome`, `tipo` (`mensalista`/`day_use`), `status` (`confirmada`/`cancelada`), `pagamentoId` (cobrança do Day Use ou null), `criadoEm`, `atualizadoEm`.
 
 **`pagamentos`** — ID automático: `alunoId`, `alunoNome`, `tipo` (`mensalidade`/`day_use`), `valor`, `forma` (`pix`/`dinheiro`/`outro`), `status` (`pendente`/`em_analise`/`confirmado`/`recusado`/`cancelado`), `vencimento`, `aulaId`, `presencaId`, `turmaId`, `cicloInicio`, `cicloFim`, `informadoEm`, `observacaoAluno`, `motivoRecusa`, `confirmadoPor`, `confirmadoEm`, `criadoEm`, `atualizadoEm`.
 
@@ -167,7 +166,6 @@ Não existe limite de vagas. **Todo aluno marca presença** em cada aula que vai
 | Dia extra: treino fora da agenda, todos pagam diária (inclusive mensalistas) | `servicos/servicoAulas.ts` (`criarDiaExtra`) |
 | Day Use pago até a meia-noite do dia da aula; depois fica **em atraso** e **bloqueia** novas presenças | `servicos/regras/regrasPagamento.ts` |
 | Mensalista com a mensalidade atrasada (ou sem o 1º pagamento) **não marca presença** até pagar; avisar o PIX já libera enquanto o professor confere | `servicos/regras/regrasAula.ts` (`mensalidade_pendente`) |
-| Experimental gratuita, uma única vez | `servicoPresencas.ts` (`marcarExperimental`) |
 | Só o professor administrador confirma pagamentos | `servicos/servicoPagamentos.ts` + `firestore.rules` |
 | Mensalidade confirmada → novo ciclo de dias (Ajustes) | `servicos/regras/regrasMensalidade.ts` |
 | Quem pode o quê (professor / auxiliar / aluno) | `lib/permissoes.ts` (tela) + `firestore.rules` (banco) |
@@ -200,7 +198,7 @@ Para testar sem mexer no projeto real: `npx firebase-tools emulators:start --onl
 
 ## Próximos passos sugeridos
 
-- Levar para uma **Cloud Function** as conferências que hoje ficam só no app: mensalidade vencida (mensalista com validade expirada marcando sem custo), horário da aula ao desmarcar Day Use e o reset da experimental. As regras do Firestore já impedem o aluno de confirmar pagamentos, mudar valores ou mexer nos dados de outros.
+- Levar para uma **Cloud Function** as conferências que hoje ficam só no app: mensalidade vencida (mensalista com validade expirada marcando sem custo) e horário da aula ao desmarcar Day Use. As regras do Firestore já impedem o aluno de confirmar pagamentos, mudar valores ou mexer nos dados de outros.
 - Notificações push (Firebase Cloud Messaging) para lembrar o aluno de marcar presença e de pagar o Day Use.
 - E-mail automático quando o professor confirma ou recusa um pagamento.
 

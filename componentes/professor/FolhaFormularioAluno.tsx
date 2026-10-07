@@ -43,7 +43,6 @@ export function FolhaFormularioAluno({
     validadeMensalidade: aluno?.validadeMensalidade ?? null,
     turmasIds: aluno?.turmasIds,
     validades: aluno?.validades,
-    usouExperimental: aluno?.usouExperimental ?? false,
     associado: aluno?.associado ?? false,
     ativo: aluno?.ativo ?? true,
     observacoes: aluno?.observacoes ?? "",
@@ -226,18 +225,6 @@ export function FolhaFormularioAluno({
               />
             </label>
           )}
-          <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-linha/70">
-            <span>
-              <span className="block text-[15px] font-semibold">Aula experimental já usada</span>
-              <span className="block text-[13px] text-suave">Desmarque para liberar uma nova experimental</span>
-            </span>
-            <input
-              type="checkbox"
-              className="size-5 accent-marinho-600"
-              checked={dados.usouExperimental}
-              onChange={(e) => alterar("usouExperimental", e.target.checked)}
-            />
-          </label>
           <CampoTexto
             rotulo="Observações (só o professor vê)"
             value={dados.observacoes}

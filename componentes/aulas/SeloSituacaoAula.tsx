@@ -14,7 +14,7 @@ export function SeloSituacaoAula({ situacao, cobranca }: { situacao: SituacaoPre
       }
       return (
         <Selo tom="verde" ponto>
-          {situacao.presenca.tipo === "experimental" ? "Experimental" : "Presente"}
+          Presente
         </Selo>
       );
     }

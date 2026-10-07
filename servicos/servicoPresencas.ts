@@ -1,9 +1,7 @@
 import { banco, onde, type OperacaoLote } from "@/lib/banco";
-import type { Aula, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
-import { formatarDataRelativa } from "@/lib/utilitarios/datas";
+import type { Aula, Pagamento, Presenca, Usuario } from "@/tipos";
 import { aulaDaSemana, avaliarPresenca } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
-import { operacaoNotificarProfessores } from "./servicoNotificacoes";
 
 /**
  * Marcar e desmarcar presença.
@@ -124,28 +122,6 @@ export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<Presen
   return marcada;
 }
 
-/** Aula experimental: gratuita, uma única vez */
-export async function marcarExperimental(aluno: Usuario, aula: Aula, turma: Turma | undefined): Promise<Presenca> {
-  const { situacao } = await conferir(aluno, aula);
-  if (situacao.tipo !== "day_use" || !situacao.podeExperimental) {
-    throw new Error("A aula experimental já foi usada");
-  }
-  const presencaId = banco.novoId("presencas");
-  const dados = montarPresenca(aluno, aula, "experimental", null);
-  const local = comoGravado(presencaId, dados);
-  await banco.lote([
-    { tipo: "definir", colecao: "presencas", id: presencaId, dados },
-    { tipo: "atualizar", colecao: "usuarios", id: aluno.id, dados: { usouExperimental: true } },
-    operacaoNotificarProfessores({
-      tipo: "experimental_agendada",
-      titulo: "Nova aula experimental",
-      mensagem: `${aluno.nome} vem fazer a experimental — ${turma?.nome ?? "aula"}, ${formatarDataRelativa(aula.data)} às ${aula.horarioInicio}.`,
-      link: "/professor",
-    }),
-  ]);
-  return local;
-}
-
 /** Desmarca a presença (antes da aula começar). Cancela a cobrança se ainda não foi paga */
 export async function desmarcarPresenca(presenca: Presenca): Promise<Presenca> {
   const local: Presenca = { ...presenca, status: "cancelada", atualizadoEm: new Date().toISOString() };
@@ -163,9 +139,6 @@ export async function desmarcarPresenca(presenca: Presenca): Promise<Presenca> {
       id: presenca.pagamentoId,
       dados: { status: "cancelado", motivoRecusa: "Presença desmarcada" },
     });
-  }
-  if (presenca.tipo === "experimental") {
-    operacoes.push({ tipo: "atualizar", colecao: "usuarios", id: presenca.alunoId, dados: { usouExperimental: false } });
   }
   await banco.lote(operacoes);
   return local;

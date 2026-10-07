@@ -64,7 +64,7 @@ const NAO_SE_APLICA: SituacaoMensalidade = {
   diasRestantes: null,
   validade: null,
   rotulo: "Avulso",
-  descricao: "Use Day Use ou a aula experimental",
+  descricao: "Marque presença com Day Use",
 };
 
 /** Situação de uma mensalidade a partir da validade */

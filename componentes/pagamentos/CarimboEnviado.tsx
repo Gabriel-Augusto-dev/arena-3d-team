@@ -1,6 +1,6 @@
 import { Hourglass, CircleCheck } from "lucide-react";
 
-/** Confirmação visual depois de enviar um PIX ou agendar experimental */
+/** Confirmação visual depois de enviar um PIX ou marcar presença */
 export function CarimboEnviado({
   tipo,
   titulo,

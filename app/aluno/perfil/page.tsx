@@ -95,7 +95,6 @@ export default function PerfilAluno() {
                 ) : (
                   <LinhaInfo rotulo="Day Use" valor={formatarMoeda(configuracoes.valorDayUse)} />
                 )}
-                <LinhaInfo rotulo="Aula experimental" valor={aluno.usouExperimental ? "Já utilizada" : "Disponível"} />
               </dl>
             </Cartao>
           </section>

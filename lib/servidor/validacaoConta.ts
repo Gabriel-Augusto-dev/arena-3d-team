@@ -35,7 +35,6 @@ export function validarNovaConta(entrada: unknown): PerfilNovaConta {
       validadeMensalidade: null,
       turmasIds: [],
       validades: {},
-      usouExperimental: true,
       ativo: true,
       observacoes: "",
     };
@@ -67,7 +66,6 @@ export function validarNovaConta(entrada: unknown): PerfilNovaConta {
     whatsapp: numeros(dados.whatsapp),
     plano,
     ...camposDasMatriculas(matriculas),
-    usouExperimental: dados.usouExperimental === true,
     associado: plano === "mensalista" && dados.associado === true,
     ativo: dados.ativo !== false,
     observacoes: texto(dados.observacoes, 1000),

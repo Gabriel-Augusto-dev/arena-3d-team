@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarCheck2, Clock, Hourglass, Lock, MapPin, Sparkles, Ticket, TriangleAlert, UserRound, Users } from "lucide-react";
+import { CalendarCheck2, Clock, Hourglass, Lock, MapPin, Ticket, TriangleAlert, UserRound, Users } from "lucide-react";
 import type { AulaDoAluno } from "@/ganchos/useAgendaAluno";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao, BotaoLink } from "@/componentes/interface/Botao";
@@ -13,14 +13,14 @@ import { formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { descreverQuadra, nomeDoProfessor, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
-import { desmarcarPresenca, marcarExperimental, marcarPresenca } from "@/servicos/servicoPresencas";
+import { desmarcarPresenca, marcarPresenca } from "@/servicos/servicoPresencas";
 import type { Pagamento } from "@/tipos";
 
-type Etapa = "detalhes" | "day_use_marcado" | "experimental_marcada";
+type Etapa = "detalhes" | "day_use_marcado";
 
 /**
  * Detalhes da aula para o aluno: marcar presença (mensalista ou Day Use),
- * experimental, pagar agora ou depois e desmarcar.
+ * pagar agora ou depois e desmarcar.
  */
 export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(): void }) {
   const { aluno, configuracoes, meusPagamentos, registrarLocal } = useDadosAluno();
@@ -80,12 +80,6 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
         </Botao>
       </div>
     );
-  } else if (etapa === "experimental_marcada") {
-    rodape = (
-      <Botao tamanho="grande" larguraTotal onClick={aoFechar}>
-        Entendi
-      </Botao>
-    );
   } else if (situacao.tipo === "livre_mensalista") {
     rodape = (
       <Botao variante="destaque" tamanho="grande" larguraTotal carregando={enviando} onClick={marcar}>
@@ -131,14 +125,6 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
           tipo="confirmado"
           titulo="Presença marcada!"
           descricao={`O Day Use de ${formatarMoeda(valor)} pode ser pago agora ou depois da aula, até a meia-noite de ${formatarDataExtenso(aula.data).toLowerCase()}. Depois disso fica em atraso.`}
-        />
-      )}
-
-      {etapa === "experimental_marcada" && (
-        <CarimboEnviado
-          tipo="confirmado"
-          titulo="Experimental marcada!"
-          descricao={`Te esperamos ${formatarDataExtenso(aula.data).toLowerCase()}, às ${aula.horarioInicio}. Chegue 10 minutos antes.`}
         />
       )}
 
@@ -197,21 +183,6 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                 carregando={enviando}
                 destaque
               />
-              {situacao.podeExperimental && (
-                <Opcao
-                  icone={Sparkles}
-                  titulo="Aula experimental"
-                  preco="Grátis"
-                  descricao="Uma vez só, para conhecer o treino."
-                  aoEscolher={() =>
-                    executar(
-                      async () => registrarLocal({ presencas: [await marcarExperimental(aluno, aula, turma)] }),
-                      () => setEtapa("experimental_marcada"),
-                    )
-                  }
-                  carregando={enviando}
-                />
-              )}
             </div>
           )}
 
@@ -260,7 +231,7 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
               <Mensagem
                 icone={CalendarCheck2}
                 tom="verde"
-                titulo={situacao.presenca.tipo === "experimental" ? "Experimental marcada" : "Presença marcada"}
+                titulo="Presença marcada"
                 texto="O professor já sabe que você vem."
               />
               {cobranca && <StatusCobranca cobranca={cobranca} aoPagar={() => setPagar([cobranca])} />}

@@ -17,7 +17,6 @@ export type DadosAluno = Pick<
   | "validadeMensalidade"
   | "turmasIds"
   | "validades"
-  | "usouExperimental"
   | "associado"
   | "ativo"
   | "observacoes"
