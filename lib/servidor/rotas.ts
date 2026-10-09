@@ -106,11 +106,11 @@ export async function linkConfirmarEmail(email: string, urlApp: string): Promise
   return `${urlApp}/confirmar-email?codigo=${encodeURIComponent(codigo)}`;
 }
 
-/** Marca no cadastro que o e-mail foi confirmado (libera o acesso do aluno) */
+/** Marca no cadastro que o e-mail foi confirmado (libera o acesso do aluno; no professor só mostra o selo) */
 export async function marcarEmailConfirmado(uid: string): Promise<void> {
   const referencia = bancoAdmin().collection("usuarios").doc(uid);
   const documento = await referencia.get();
-  if (documento.exists && documento.data()?.emailConfirmado === false) {
+  if (documento.exists && documento.data()?.emailConfirmado !== true) {
     await referencia.update({ emailConfirmado: true, atualizadoEm: new Date().toISOString() });
   }
 }

@@ -18,18 +18,27 @@ const ultimosPedidos = new Map<string, number>();
 const INTERVALO_MS = 60_000;
 
 /**
- * POST /api/emails/confirmacao — reenvia o link de confirmação para o aluno logado.
- * Se ele já confirmou (ou o e-mail não está configurado), libera o acesso.
+ * POST /api/emails/confirmacao — envia o link de confirmação para quem está logado:
+ * o aluno que se cadastrou sozinho (bloqueado até confirmar) ou o professor,
+ * pela tela "Meus dados". Se o e-mail já está confirmado no Firebase, só marca.
  */
 export async function POST(request: Request) {
   try {
     const usuario = await usuarioDaRequisicao(request);
-    if (usuario.emailConfirmado !== false) return responder({ confirmado: true });
+    const aluno = usuario.perfil === "aluno";
+    // Aluno sem o campo foi cadastrado pelo professor: não precisa confirmar
+    if (usuario.emailConfirmado === true || (aluno && usuario.emailConfirmado === undefined)) {
+      return responder({ confirmado: true });
+    }
 
     const conta = await authAdmin().getUser(usuario.id);
-    if (conta.emailVerified || !emailConfigurado()) {
+    // Sem o Brevo configurado o aluno não ficaria preso: libera direto
+    if (conta.emailVerified || (aluno && !emailConfigurado())) {
       await marcarEmailConfirmado(usuario.id);
       return responder({ confirmado: true });
+    }
+    if (!emailConfigurado()) {
+      throw new ErroHttp(503, "O envio de e-mails ainda não está configurado (EMAIL_REMETENTE e SMTP na Vercel)");
     }
 
     const agora = Date.now();

@@ -49,7 +49,13 @@ export async function POST(request: Request) {
     await bancoAdmin()
       .collection("usuarios")
       .doc(professor.id)
-      .update({ nome, email, whatsapp, atualizadoEm: new Date().toISOString() });
+      .update({
+        nome,
+        email,
+        whatsapp,
+        ...(emailMudou ? { emailConfirmado: false } : {}),
+        atualizadoEm: new Date().toISOString(),
+      });
 
     if (!emailMudou) return responder({ emailMudou: false, emailEnviado: false, linkSenha: null });
 

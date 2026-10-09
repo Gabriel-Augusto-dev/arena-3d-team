@@ -6,7 +6,7 @@ import { ChevronRight, LogOut, Pencil, UsersRound } from "lucide-react";
 import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
-import { Avatar, Carregando, Cartao, TituloPagina, TituloSecao } from "@/componentes/interface/Elementos";
+import { Avatar, Carregando, Cartao, Selo, TituloPagina, TituloSecao } from "@/componentes/interface/Elementos";
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
 import { Folha } from "@/componentes/interface/Folha";
@@ -234,6 +234,25 @@ function FolhaMeusDados({ aoFechar }: { aoFechar(): void }) {
   const [salvando, setSalvando] = useState(false);
   const [erros, setErros] = useState<{ nome?: string; email?: string; whatsapp?: string }>({});
   const [resultado, setResultado] = useState<RespostaMeusDados | null>(null);
+  const [enviandoConfirmacao, setEnviandoConfirmacao] = useState(false);
+  const [confirmacaoEnviada, setConfirmacaoEnviada] = useState(false);
+  const emailConfirmado = professor.emailConfirmado === true;
+
+  const enviarConfirmacao = async () => {
+    setEnviandoConfirmacao(true);
+    try {
+      const resposta = await chamarApi<{ confirmado: boolean }>("/api/emails/confirmacao");
+      if (resposta.confirmado) avisos.sucesso("E-mail já estava confirmado");
+      else {
+        setConfirmacaoEnviada(true);
+        avisos.sucesso("Enviamos o link de confirmação para o seu e-mail");
+      }
+    } catch (erro) {
+      avisos.erro(erro);
+    } finally {
+      setEnviandoConfirmacao(false);
+    }
+  };
 
   const emailMudou = email.trim().toLowerCase() !== professor.email.trim().toLowerCase();
 
@@ -339,6 +358,29 @@ function FolhaMeusDados({ aoFechar }: { aoFechar(): void }) {
               : undefined
           }
         />
+        {!emailMudou && (
+          <div className="-mt-1 flex flex-wrap items-center gap-2">
+            {emailConfirmado ? (
+              <Selo tom="verde" ponto>
+                E-mail confirmado
+              </Selo>
+            ) : (
+              <>
+                <Selo tom="amarelo" ponto>
+                  E-mail não confirmado
+                </Selo>
+                <Botao variante="secundario" tamanho="pequeno" carregando={enviandoConfirmacao} onClick={enviarConfirmacao}>
+                  {confirmacaoEnviada ? "Reenviar confirmação" : "Confirmar e-mail"}
+                </Botao>
+              </>
+            )}
+          </div>
+        )}
+        {!emailMudou && !emailConfirmado && confirmacaoEnviada && (
+          <p className="-mt-2 text-sm text-suave">
+            Abra o e-mail e toque em “Confirmar meu e-mail”. O selo fica verde sozinho depois disso.
+          </p>
+        )}
         <Campo
           rotulo="WhatsApp"
           type="tel"

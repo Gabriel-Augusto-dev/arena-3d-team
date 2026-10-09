@@ -34,7 +34,7 @@ export async function chamarApi<T = Record<string, unknown>>(
   }
   const dados = (await resposta.json().catch(() => ({}))) as { erro?: string };
   if (!resposta.ok) {
-    throw new ErroApi(dados.erro ?? "Não foi possível concluir. Tente novamente", resposta.status);
+    throw new ErroApi(dados.erro ?? `Não foi possível concluir. Tente novamente (erro ${resposta.status})`, resposta.status);
   }
   return dados as T;
 }
