@@ -1,6 +1,7 @@
 import { authAdmin, bancoAdmin } from "@/lib/servidor/firebaseAdmin";
 import { emailConvite } from "@/lib/servidor/modelosEmail";
 import {
+  cpfEmUso,
   ErroHttp,
   exigirAdministrador,
   lerCorpo,
@@ -23,6 +24,10 @@ export async function POST(request: Request) {
     await exigirAdministrador(request);
     const corpo = await lerCorpo<{ perfil: unknown }>(request);
     const perfil = validarNovaConta(corpo.perfil);
+
+    if (perfil.perfil === "aluno" && (await cpfEmUso(perfil.cpf))) {
+      throw new ErroHttp(409, "Este CPF já está cadastrado em outra conta");
+    }
 
     if (perfil.perfil === "aluno" && perfil.turmaId) {
       const turma = await bancoAdmin().collection("turmas").doc(perfil.turmaId).get();

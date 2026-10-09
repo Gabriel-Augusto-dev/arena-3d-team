@@ -51,6 +51,15 @@ export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
 
     async cadastrarAluno(dados) {
       try {
+        // CPF repetido não pode: confere no servidor antes de criar a conta
+        const { disponivel } = await chamarApi<{ disponivel: boolean }>(
+          "/api/contas/cpf",
+          { cpf: somenteNumeros(dados.cpf) },
+          { autenticado: false },
+        );
+        if (!disponivel) {
+          throw new ErroAutenticacao("Este CPF já está cadastrado. Use “Esqueci minha senha” para entrar");
+        }
         const credencial = await createUserWithEmailAndPassword(auth(), dados.email.trim(), dados.senha);
         const uid = credencial.user.uid;
         await banco.definir("usuarios", uid, {

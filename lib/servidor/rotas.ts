@@ -106,6 +106,13 @@ export async function linkConfirmarEmail(email: string, urlApp: string): Promise
   return `${urlApp}/confirmar-email?codigo=${encodeURIComponent(codigo)}`;
 }
 
+/** Já existe outra conta com este CPF? (CPF só com números; vazio nunca conflita) */
+export async function cpfEmUso(cpf: string, ignorarUid?: string): Promise<boolean> {
+  if (!cpf) return false;
+  const resultado = await bancoAdmin().collection("usuarios").where("cpf", "==", cpf).limit(2).get();
+  return resultado.docs.some((d) => d.id !== ignorarUid);
+}
+
 /** Marca no cadastro que o e-mail foi confirmado (libera o acesso do aluno; no professor só mostra o selo) */
 export async function marcarEmailConfirmado(uid: string): Promise<void> {
   const referencia = bancoAdmin().collection("usuarios").doc(uid);

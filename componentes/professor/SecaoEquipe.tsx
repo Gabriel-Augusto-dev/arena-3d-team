@@ -68,12 +68,6 @@ export function SecaoEquipe() {
         }
       />
       <Cartao className="flex flex-col gap-3">
-        <p className="text-sm leading-relaxed text-suave">
-          O <strong className="text-tinta">professor auxiliar</strong> vê os alunos, as aulas, a lista de presença e se
-          cada aluno já pagou. Os valores vão todos para você: só você confirma pagamentos, mexe no financeiro, nos
-          cadastros e nos ajustes.
-        </p>
-
         {carregando ? (
           <EsqueletoLista linhas={1} />
         ) : ordenados.length === 0 ? (

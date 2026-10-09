@@ -1,5 +1,5 @@
 import { autenticacao, type DadosPerfilConta, type ResultadoNovaConta } from "@/lib/autenticacao";
-import { banco } from "@/lib/banco";
+import { banco, onde } from "@/lib/banco";
 import { chamarApi } from "@/lib/api/cliente";
 import type { Usuario } from "@/tipos";
 import { somenteNumeros } from "@/lib/utilitarios/formatadores";
@@ -56,6 +56,10 @@ export async function reenviarAcesso(uid: string): Promise<ResultadoNovaConta> {
 
 export async function atualizarAluno(anterior: Usuario, dados: DadosAluno) {
   const novos = normalizar(dados);
+  if (novos.cpf && novos.cpf !== anterior.cpf) {
+    const iguais = await banco.listar("usuarios", [onde("cpf", "==", novos.cpf)]);
+    if (iguais.some((u) => u.id !== anterior.id)) throw new Error("Este CPF já está cadastrado em outra conta");
+  }
   // E-mail é a chave de login: alterar exige mudar também no Firebase Auth
   const { email: _email, ...semEmail } = novos;
   void _email;
