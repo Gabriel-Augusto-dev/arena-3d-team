@@ -40,8 +40,9 @@ export default function PaginaCadastro() {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
-    if (!carregando && usuario) router.replace(destinoAposLogin(usuario));
-  }, [carregando, usuario, router]);
+    // Durante o cadastro a sessão já existe: espera terminar (e-mail de confirmação) antes de sair da tela
+    if (!carregando && usuario && !enviando) router.replace(destinoAposLogin(usuario));
+  }, [carregando, usuario, router, enviando]);
 
   const alterar = (campo: keyof Formulario, valor: string) => {
     setDados((d) => ({ ...d, [campo]: valor }));

@@ -114,12 +114,18 @@ function ProvedorAutenticacaoFirebase({ children }: { children: React.ReactNode 
 
   const cadastrar = useCallback(async (dados: DadosNovaConta) => {
     const novoUid = await autenticacao.cadastrarAluno(dados);
+    // Primeiro o e-mail de confirmação: é ele que libera o acesso. Vai antes de
+    // tudo (e esperando) para não se perder se a tela mudar ou algo abaixo falhar.
+    await chamarApi("/api/emails/boas-vindas").catch(() => undefined);
     const perfil = await banco.obter("usuarios", novoUid);
     if (!perfil) throw new ErroAutenticacao("Não foi possível concluir o cadastro");
-    const turma = perfil.turmaId ? await banco.obter("turmas", perfil.turmaId) : null;
-    // O aviso ao professor e o e-mail de boas-vindas não podem impedir o cadastro de terminar
-    await notificarNovoCadastro(perfil, turma).catch(() => undefined);
-    void chamarApi("/api/emails/boas-vindas").catch(() => undefined);
+    // O aviso ao professor não pode impedir o cadastro de terminar
+    try {
+      const turma = perfil.turmaId ? await banco.obter("turmas", perfil.turmaId) : null;
+      await notificarNovoCadastro(perfil, turma);
+    } catch {
+      /* segue sem o aviso */
+    }
     return perfil;
   }, []);
 
