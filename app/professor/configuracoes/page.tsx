@@ -2,14 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, LogOut, UsersRound } from "lucide-react";
+import { ChevronRight, LogOut, Pencil, UsersRound } from "lucide-react";
 import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Avatar, Carregando, Cartao, TituloPagina, TituloSecao } from "@/componentes/interface/Elementos";
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
+import { Folha } from "@/componentes/interface/Folha";
 import { PainelPix } from "@/componentes/pagamentos/PainelPix";
+import { chamarApi } from "@/lib/api/cliente";
+import { validarEmail, validarTelefone } from "@/lib/utilitarios/validacoes";
 import Link from "next/link";
 import { formatarTelefone, somenteNumeros } from "@/lib/utilitarios/formatadores";
 import { normalizarChavePix } from "@/lib/utilitarios/pix";
@@ -31,6 +34,7 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
   const avisos = useAvisos();
   const router = useRouter();
   const [salvando, setSalvando] = useState(false);
+  const [editandoConta, setEditandoConta] = useState(false);
   const [dados, setDados] = useState<Formulario>(() => {
     const { id: _id, atualizadoEm: _atualizado, ...resto } = configuracoes;
     void _id;
@@ -189,6 +193,9 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
               <p className="truncate font-semibold">{professor.nome}</p>
               <p className="truncate text-sm text-suave">{professor.email}</p>
             </div>
+            <Botao variante="secundario" tamanho="pequeno" icone={Pencil} onClick={() => setEditandoConta(true)}>
+              Editar
+            </Botao>
             <Botao
               variante="perigo"
               tamanho="pequeno"
@@ -203,6 +210,143 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
           </Cartao>
         </aside>
       </div>
+
+      {editandoConta && <FolhaMeusDados aoFechar={() => setEditandoConta(false)} />}
     </>
+  );
+}
+
+interface RespostaMeusDados {
+  emailMudou: boolean;
+  emailEnviado: boolean;
+  linkSenha: string | null;
+}
+
+/** O professor responsável edita nome, e-mail (login) e WhatsApp da própria conta */
+function FolhaMeusDados({ aoFechar }: { aoFechar(): void }) {
+  const professor = useUsuarioLogado();
+  const { sair } = useAutenticacao();
+  const avisos = useAvisos();
+  const router = useRouter();
+  const [nome, setNome] = useState(professor.nome);
+  const [email, setEmail] = useState(professor.email);
+  const [whatsapp, setWhatsapp] = useState(professor.whatsapp ?? "");
+  const [salvando, setSalvando] = useState(false);
+  const [erros, setErros] = useState<{ nome?: string; email?: string; whatsapp?: string }>({});
+  const [resultado, setResultado] = useState<RespostaMeusDados | null>(null);
+
+  const emailMudou = email.trim().toLowerCase() !== professor.email.trim().toLowerCase();
+
+  const encerrar = async () => {
+    await sair().catch(() => undefined);
+    router.replace("/entrar");
+  };
+
+  const salvar = async () => {
+    const novos: typeof erros = {};
+    if (nome.trim().split(/\s+/).length < 2) novos.nome = "Informe nome e sobrenome";
+    if (!validarEmail(email)) novos.email = "E-mail inválido";
+    if (whatsapp.trim() && !validarTelefone(whatsapp)) novos.whatsapp = "WhatsApp com DDD";
+    setErros(novos);
+    if (Object.keys(novos).length) return;
+    setSalvando(true);
+    try {
+      const resposta = await chamarApi<RespostaMeusDados>("/api/contas/meus-dados", {
+        nome,
+        email,
+        whatsapp: somenteNumeros(whatsapp),
+      });
+      if (!resposta.emailMudou) {
+        avisos.sucesso("Dados atualizados");
+        aoFechar();
+        return;
+      }
+      setResultado(resposta);
+    } catch (erro) {
+      avisos.erro(erro);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  if (resultado) {
+    return (
+      <Folha
+        aberta
+        aoFechar={encerrar}
+        titulo="E-mail de acesso alterado"
+        rodape={
+          <Botao tamanho="grande" larguraTotal onClick={encerrar}>
+            Entendi, sair
+          </Botao>
+        }
+      >
+        <div className="flex flex-col gap-3 text-sm">
+          <p>
+            Agora o login da conta de professor é <strong>{email.trim().toLowerCase()}</strong>. A senha antiga deixou de
+            valer e esta sessão será encerrada.
+          </p>
+          {resultado.emailEnviado ? (
+            <p>Enviamos para esse e-mail o link para criar a nova senha (vale por 1 hora).</p>
+          ) : (
+            <>
+              <p>
+                Não foi possível enviar o e-mail. Copie o link abaixo e mande para o novo professor criar a senha (vale
+                por 1 hora). Se expirar, use “Esqueci minha senha” na tela de entrar.
+              </p>
+              {resultado.linkSenha && (
+                <Botao
+                  variante="secundario"
+                  larguraTotal
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(resultado.linkSenha ?? "");
+                    avisos.sucesso("Link copiado");
+                  }}
+                >
+                  Copiar link
+                </Botao>
+              )}
+            </>
+          )}
+        </div>
+      </Folha>
+    );
+  }
+
+  return (
+    <Folha
+      aberta
+      aoFechar={aoFechar}
+      titulo="Meus dados"
+      descricao="Dados da conta de professor responsável"
+      rodape={
+        <Botao tamanho="grande" larguraTotal carregando={salvando} onClick={salvar}>
+          Salvar
+        </Botao>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Campo rotulo="Nome" value={nome} onChange={(e) => setNome(e.target.value)} erro={erros.nome} />
+        <Campo
+          rotulo="E-mail (login)"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          erro={erros.email}
+          dica={
+            emailMudou
+              ? "Ao salvar, o login passa a ser este e-mail: a senha atual deixa de valer e chega nele um link para criar a nova senha"
+              : undefined
+          }
+        />
+        <Campo
+          rotulo="WhatsApp"
+          type="tel"
+          value={formatarTelefone(whatsapp)}
+          onChange={(e) => setWhatsapp(e.target.value)}
+          erro={erros.whatsapp}
+        />
+      </div>
+    </Folha>
   );
 }

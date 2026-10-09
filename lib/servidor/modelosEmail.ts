@@ -82,12 +82,14 @@ export function emailConvite({
   urlApp,
   perfil,
   linkSenha,
-}: Base & { perfil: "aluno" | "auxiliar"; linkSenha: string }): Mensagem {
+}: Base & { perfil: "aluno" | "auxiliar" | "professor"; linkSenha: string }): Mensagem {
   const arena = escapar(nomeArena);
   const oQueFaz =
-    perfil === "auxiliar"
-      ? `Você foi cadastrado como <strong>professor auxiliar</strong> no app da ${arena}. Por lá você acompanha os alunos, as aulas, a lista de presença e quem já pagou.`
-      : `Seu cadastro na <strong>${arena}</strong> está pronto. Pelo app você marca presença nas aulas e paga pelo PIX.`;
+    perfil === "professor"
+      ? `Você agora é o <strong>professor responsável</strong> no app da ${arena}. Por lá você cuida dos alunos, turmas, aulas, equipe e pagamentos.`
+      : perfil === "auxiliar"
+        ? `Você foi cadastrado como <strong>professor auxiliar</strong> no app da ${arena}. Por lá você acompanha os alunos, as aulas, a lista de presença e quem já pagou.`
+        : `Seu cadastro na <strong>${arena}</strong> está pronto. Pelo app você marca presença nas aulas e paga pelo PIX.`;
   return {
     para: email,
     nomeDestinatario: nome,
@@ -106,9 +108,11 @@ export function emailConvite({
     }),
     texto:
       `Bem-vindo, ${primeiroNome(nome)}!\n\n` +
-      (perfil === "auxiliar"
-        ? `Você foi cadastrado como professor auxiliar no app da ${nomeArena}.\n`
-        : `Seu cadastro na ${nomeArena} está pronto.\n`) +
+      (perfil === "professor"
+        ? `Você agora é o professor responsável no app da ${nomeArena}.\n`
+        : perfil === "auxiliar"
+          ? `Você foi cadastrado como professor auxiliar no app da ${nomeArena}.\n`
+          : `Seu cadastro na ${nomeArena} está pronto.\n`) +
       `Seu login é ${email}. Crie sua senha por este link (vale por 1 hora):\n${linkSenha}\n\n` +
       `Se expirar, abra ${urlApp} e toque em "Esqueci minha senha".`,
   };
