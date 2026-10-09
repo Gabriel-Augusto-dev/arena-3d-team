@@ -95,6 +95,26 @@ export async function linkCriarSenha(email: string, urlApp: string): Promise<str
   return `${urlApp}/criar-senha?codigo=${encodeURIComponent(codigo)}`;
 }
 
+/**
+ * Link para confirmar o e-mail do aluno que se cadastrou sozinho. Gera o código
+ * pelo Firebase Admin e aponta para a nossa tela (/confirmar-email).
+ */
+export async function linkConfirmarEmail(email: string, urlApp: string): Promise<string> {
+  const linkFirebase = await authAdmin().generateEmailVerificationLink(email);
+  const codigo = new URL(linkFirebase).searchParams.get("oobCode");
+  if (!codigo) return linkFirebase;
+  return `${urlApp}/confirmar-email?codigo=${encodeURIComponent(codigo)}`;
+}
+
+/** Marca no cadastro que o e-mail foi confirmado (libera o acesso do aluno) */
+export async function marcarEmailConfirmado(uid: string): Promise<void> {
+  const referencia = bancoAdmin().collection("usuarios").doc(uid);
+  const documento = await referencia.get();
+  if (documento.exists && documento.data()?.emailConfirmado === false) {
+    await referencia.update({ emailConfirmado: true, atualizadoEm: new Date().toISOString() });
+  }
+}
+
 export interface ResultadoEnvio {
   emailEnviado: boolean;
   /** Só volta quando o e-mail não saiu, para o professor mandar pelo WhatsApp */

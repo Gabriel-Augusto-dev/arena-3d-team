@@ -57,6 +57,9 @@ export interface AdaptadorAutenticacao {
   /** Grava a senha nova a partir do código do link */
   definirSenha(codigo: string, novaSenha: string): Promise<void>;
 
+  /** Aplica o código do link de confirmação de e-mail e devolve o e-mail confirmado */
+  confirmarEmail(codigo: string): Promise<string>;
+
   /** Avisa sempre que a sessão muda. Recebe o uid ou null */
   observarSessao(aoMudar: (uid: string | null) => void): () => void;
 }

@@ -95,6 +95,8 @@ service cloud.firestore {
             && request.resource.data.get('turmasIds', []) == [request.resource.data.turmaId]))
         && request.resource.data.get('validades', {}).size() == 0
         && request.resource.data.get('associado', false) == false
+        // o e-mail começa NÃO confirmado: só o servidor marca depois do link do e-mail
+        && request.resource.data.get('emailConfirmado', false) == false
         // a turma escolhida precisa existir e estar ativa
         && (request.resource.data.turmaId == null || get(caminho('turmas', request.resource.data.turmaId)).data.ativa == true)
       );

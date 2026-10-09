@@ -1,4 +1,6 @@
 import {
+  applyActionCode,
+  checkActionCode,
   confirmPasswordReset,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
@@ -64,6 +66,7 @@ export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
           turmasIds: dados.plano === "mensalista" && dados.turmaId ? [dados.turmaId] : [],
           validades: {},
           ativo: true,
+          emailConfirmado: false,
           observacoes: "",
         });
         return uid;
@@ -123,6 +126,20 @@ export function criarAutenticacaoFirebase(): AdaptadorAutenticacao {
       try {
         await confirmPasswordReset(auth(), codigo, novaSenha);
       } catch (erro) {
+        throw traduzirErro(erro);
+      }
+    },
+
+    async confirmarEmail(codigo) {
+      try {
+        const info = await checkActionCode(auth(), codigo);
+        await applyActionCode(auth(), codigo);
+        return info.data.email ?? "";
+      } catch (erro) {
+        const codigoErro = (erro as { code?: string })?.code ?? "";
+        if (codigoErro === "auth/expired-action-code" || codigoErro === "auth/invalid-action-code") {
+          throw new ErroAutenticacao("Este link não vale mais. Entre no app e toque em “Reenviar e-mail”");
+        }
         throw traduzirErro(erro);
       }
     },

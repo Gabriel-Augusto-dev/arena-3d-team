@@ -70,7 +70,7 @@ Pode rodar de novo sem problema (não duplica nada). Depois, entre no app e vá 
 ### 3. Brevo (e-mails)
 
 1. Em [brevo.com](https://www.brevo.com), vá em *Remetentes, domínios e IPs* e **valide o e-mail remetente** (ou o domínio inteiro — melhor para não cair no spam).
-2. Em *Configurações → SMTP e API → SMTP*, copie o **Login** (`BREVO_SMTP_USUARIO`) e gere uma **Chave SMTP** (`BREVO_SMTP_CHAVE`).
+2. Em *Configurações → SMTP e API → SMTP*, copie o **Login** (`SMTP_USER`) e gere uma **Chave SMTP** (`SMTP_PASS`).
 3. Preencha `EMAIL_REMETENTE` com o remetente validado.
 
 E-mails que o app envia:
@@ -79,10 +79,13 @@ E-mails que o app envia:
 | --- | --- |
 | Professor cadastra um aluno ou auxiliar | "Seu acesso ao app" com o botão **Criar minha senha** |
 | Professor toca em **Reenviar acesso** | O mesmo e-mail, com um link novo |
-| Aluno se cadastra sozinho | Boas-vindas, explicando mensalista / Day Use |
+| Aluno se cadastra sozinho | Boas-vindas com o botão **Confirmar meu e-mail** |
+| Aluno toca em **Reenviar e-mail** | Link novo de confirmação |
 | "Esqueci minha senha" | Link para criar uma senha nova |
 
-Os links abrem a tela `/criar-senha` do próprio app e valem por **1 hora** (limite do Firebase). Se o e-mail não sair (Brevo fora do ar ou sem configuração), o professor vê o link na tela para mandar pelo WhatsApp.
+Os links de senha abrem a tela `/criar-senha` do próprio app e valem por **1 hora** (limite do Firebase). O de confirmação abre `/confirmar-email`.
+
+**Confirmação de e-mail:** o aluno que se cadastra sozinho só acessa a área dele depois de tocar no link do e-mail (até lá vê a tela *Confirme seu e-mail*, com **Já confirmei** e **Reenviar e-mail**). Contas criadas pelo professor e contas antigas não passam por isso. Sem o Brevo configurado, a conta é liberada direto. Se o e-mail não sair (Brevo fora do ar ou sem configuração), o professor vê o link na tela para mandar pelo WhatsApp.
 
 *Opcional:* para que os poucos e-mails enviados pelo próprio Firebase também saiam pelo Brevo, em *Authentication → Modelos → Configurações de SMTP* use `smtp-relay.brevo.com`, porta `587`, e o mesmo login e chave.
 
@@ -94,7 +97,7 @@ Em *Settings → Environment Variables*, cadastre as mesmas variáveis do `.env.
 | --- | --- |
 | `NEXT_PUBLIC_FIREBASE_API_KEY`, `..._AUTH_DOMAIN`, `..._PROJECT_ID`, `..._STORAGE_BUCKET`, `..._MESSAGING_SENDER_ID`, `..._APP_ID` | App da Web no Firebase |
 | `FIREBASE_ADMIN_CREDENCIAIS` | Conteúdo **inteiro** do `.json` da conta de serviço |
-| `BREVO_SMTP_USUARIO`, `BREVO_SMTP_CHAVE`, `EMAIL_REMETENTE` | Brevo |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `EMAIL_REMETENTE` | Brevo |
 | `EMAIL_REMETENTE_NOME` (opcional) | Nome que aparece no e-mail (padrão: nome da arena) |
 | `URL_APP` | Endereço público do app, ex.: `https://app.3dteam.com.br` (usado nos links dos e-mails) |
 
@@ -177,6 +180,7 @@ app/
   entrar/            Login único (o sistema detecta o perfil)
   cadastro/          Cadastro do próprio aluno
   criar-senha/       Tela dos links de e-mail (criar / trocar senha)
+  confirmar-email/   Tela do link de confirmação de e-mail do cadastro
   aluno/             Início, aulas, pagamentos, perfil
   professor/         Início, alunos (+ ficha), turmas/aulas, financeiro*, ajustes*   (*só administrador)
   api/               Rotas do servidor: contas, reenvio de acesso, boas-vindas, senha

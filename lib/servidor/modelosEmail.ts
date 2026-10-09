@@ -114,40 +114,70 @@ export function emailConvite({
   };
 }
 
-/** Aluno que se cadastrou sozinho */
+/**
+ * Aluno que se cadastrou sozinho: boas-vindas + link para confirmar o e-mail.
+ * Sem `linkConfirmacao` (Brevo indisponível na hora de gerar) vira só boas-vindas.
+ */
 export function emailBoasVindas({
   nome,
   email,
   nomeArena,
   urlApp,
   plano,
-}: Base & { plano: "mensalista" | "avulso" }): Mensagem {
+  linkConfirmacao,
+}: Base & { plano: "mensalista" | "avulso"; linkConfirmacao?: string | null }): Mensagem {
   const arena = escapar(nomeArena);
   const comoFunciona =
     plano === "mensalista"
       ? "Você escolheu ser <strong>mensalista</strong>. Assim que o professor confirmar o primeiro pagamento, suas aulas da turma ficam liberadas sem custo. Até lá, dá para treinar pagando o Day Use."
       : "Você vai treinar com <strong>Day Use</strong>: marca presença na aula que quiser e paga pelo PIX até a meia-noite do dia da aula.";
+  const confirmar = linkConfirmacao
+    ? "Para liberar seu acesso, <strong>confirme seu e-mail</strong> no botão abaixo."
+    : "Antes de cada treino, abra o app e toque em <strong>Vou</strong> para marcar presença.";
   return {
     para: email,
     nomeDestinatario: nome,
-    assunto: `Bem-vindo à ${nomeArena}!`,
+    assunto: linkConfirmacao ? `Confirme seu e-mail — ${nomeArena}` : `Bem-vindo à ${nomeArena}!`,
     html: layout({
       nomeArena,
       urlApp,
       titulo: `Bem-vindo, ${primeiroNome(nome)}!`,
-      paragrafos: [
-        `Sua conta na <strong>${arena}</strong> foi criada.`,
-        comoFunciona,
-        "Antes de cada treino, abra o app e toque em <strong>Vou</strong> para marcar presença.",
-      ],
-      botao: { texto: "Abrir o app", link: `${urlApp}/entrar` },
+      paragrafos: [`Sua conta na <strong>${arena}</strong> foi criada.`, comoFunciona, confirmar],
+      botao: linkConfirmacao
+        ? { texto: "Confirmar meu e-mail", link: linkConfirmacao }
+        : { texto: "Abrir o app", link: `${urlApp}/entrar` },
+      rodape: linkConfirmacao ? "Se não foi você que criou esta conta, ignore este e-mail." : undefined,
     }),
     texto:
       `Bem-vindo, ${primeiroNome(nome)}!\n\nSua conta na ${nomeArena} foi criada.\n` +
       (plano === "mensalista"
         ? "Assim que o professor confirmar o primeiro pagamento, suas aulas da turma ficam liberadas.\n"
         : "Marque presença na aula que quiser e pague o Day Use pelo PIX até a meia-noite do dia da aula.\n") +
-      `\nAbra o app: ${urlApp}/entrar`,
+      (linkConfirmacao
+        ? `\nConfirme seu e-mail para liberar o acesso:\n${linkConfirmacao}\n\nSe não foi você, ignore este e-mail.`
+        : `\nAbra o app: ${urlApp}/entrar`),
+  };
+}
+
+/** Reenvio do link de confirmação (pedido na tela "Confirme seu e-mail") */
+export function emailConfirmacao({ nome, email, nomeArena, urlApp, linkConfirmacao }: Base & { linkConfirmacao: string }): Mensagem {
+  return {
+    para: email,
+    nomeDestinatario: nome,
+    assunto: `Confirme seu e-mail — ${nomeArena}`,
+    html: layout({
+      nomeArena,
+      urlApp,
+      titulo: "Confirme seu e-mail",
+      paragrafos: [
+        `Oi${nome.trim() ? `, ${escapar(primeiroNome(nome))}` : ""}! Toque no botão abaixo para confirmar <strong>${escapar(email)}</strong> e liberar seu acesso ao app.`,
+      ],
+      botao: { texto: "Confirmar meu e-mail", link: linkConfirmacao },
+      rodape: "Se não foi você que criou esta conta, ignore este e-mail.",
+    }),
+    texto:
+      `Oi${nome.trim() ? `, ${primeiroNome(nome)}` : ""}! Confirme ${email} para liberar seu acesso ao app:\n${linkConfirmacao}\n\n` +
+      "Se não foi você, ignore este e-mail.",
   };
 }
 

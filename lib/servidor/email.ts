@@ -4,10 +4,14 @@ import nodemailer, { type Transporter } from "nodemailer";
  * Envio de e-mails pelo SMTP do Brevo (smtp-relay.brevo.com, porta 587).
  *
  * No Brevo: Configurações → SMTP e API → aba SMTP
- *  - BREVO_SMTP_USUARIO → "Login" (algo como 9a1b2c001@smtp-brevo.com)
- *  - BREVO_SMTP_CHAVE   → uma "Chave SMTP" gerada ali
- *  - EMAIL_REMETENTE    → remetente VALIDADO em Remetentes, domínios e IPs
+ *  - SMTP_USER (ou BREVO_SMTP_USUARIO) → "Login" (algo como 9a1b2c001@smtp-brevo.com)
+ *  - SMTP_PASS (ou BREVO_SMTP_CHAVE)   → uma "Chave SMTP" gerada ali
+ *  - EMAIL_REMETENTE                   → remetente VALIDADO em Remetentes, domínios e IPs
+ *  - SMTP_HOST / SMTP_PORT             → opcionais (padrão smtp-relay.brevo.com:587)
  */
+
+/** Lê a primeira variável preenchida (aceita os dois jeitos de nomear) */
+const env = (...nomes: string[]) => nomes.map((n) => process.env[n]?.trim()).find((v) => !!v) ?? "";
 
 export class ErroEmailNaoConfigurado extends Error {}
 
@@ -15,12 +19,12 @@ let transporte: Transporter | null = null;
 
 function configuracao() {
   return {
-    host: process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com",
-    porta: Number(process.env.BREVO_SMTP_PORTA || 587),
-    usuario: process.env.BREVO_SMTP_USUARIO || "",
-    chave: process.env.BREVO_SMTP_CHAVE || "",
-    remetente: process.env.EMAIL_REMETENTE || "",
-    nomeRemetente: process.env.EMAIL_REMETENTE_NOME || "",
+    host: env("SMTP_HOST", "BREVO_SMTP_HOST") || "smtp-relay.brevo.com",
+    porta: Number(env("SMTP_PORT", "BREVO_SMTP_PORTA") || 587),
+    usuario: env("SMTP_USER", "BREVO_SMTP_USUARIO"),
+    chave: env("SMTP_PASS", "BREVO_SMTP_CHAVE"),
+    remetente: env("EMAIL_REMETENTE"),
+    nomeRemetente: env("EMAIL_REMETENTE_NOME"),
   };
 }
 
@@ -33,7 +37,7 @@ function obterTransporte(): Transporter {
   if (transporte) return transporte;
   const c = configuracao();
   if (!emailConfigurado()) {
-    throw new ErroEmailNaoConfigurado("E-mail não configurado (BREVO_SMTP_USUARIO, BREVO_SMTP_CHAVE, EMAIL_REMETENTE)");
+    throw new ErroEmailNaoConfigurado("E-mail não configurado (SMTP_USER, SMTP_PASS, EMAIL_REMETENTE)");
   }
   transporte = nodemailer.createTransport({
     host: c.host,

@@ -61,7 +61,7 @@ export default function PaginaCadastro() {
     setEnviando(true);
     try {
       const perfil = await cadastrar({ ...dados, plano: plano!, turmaId: plano === "mensalista" ? dados.turmaId : null });
-      avisos.sucesso("Conta criada! Bem-vindo à 3D Team");
+      avisos.sucesso("Conta criada! Confirme seu e-mail para entrar");
       router.replace(destinoAposLogin(perfil));
     } catch (e) {
       avisos.erro(e);

@@ -53,6 +53,11 @@ export interface Usuario {
   /** Mensalista associado: paga a mensalidade de associado definida em Ajustes */
   associado?: boolean;
   ativo: boolean;
+  /**
+   * Aluno que se cadastrou sozinho: false até abrir o link do e-mail de confirmação.
+   * Sem o campo (contas antigas ou criadas pelo professor) = não precisa confirmar.
+   */
+  emailConfirmado?: boolean;
   observacoes: string;
   /** Professor auxiliar: porcentagem de repasse usada por último no relatório da Equipe */
   percentualRepasse?: number;
