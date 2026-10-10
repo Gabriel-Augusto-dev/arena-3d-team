@@ -208,3 +208,26 @@ export function emailRedefinirSenha({ nome, email, nomeArena, urlApp, linkSenha 
       "Se não foi você, ignore este e-mail.",
   };
 }
+
+/**
+ * E-mail automático de manutenção (enviado pelo agendamento do Vercel para o
+ * próprio remetente da arena). Mantém a conta gratuita do Brevo ativa —
+ * contas sem atividade por 4 meses são excluídas — e confirma que o envio funciona.
+ */
+export function emailManutencao({ para, nomeArena, urlApp }: { para: string; nomeArena: string; urlApp: string }): Mensagem {
+  const data = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  return {
+    para,
+    assunto: `Envio de e-mails funcionando · ${nomeArena}`,
+    html: layout({
+      nomeArena,
+      urlApp,
+      titulo: "Tudo certo com os e-mails",
+      paragrafos: [
+        `Este é o aviso automático de ${escapar(data)}: o app da ${escapar(nomeArena)} continua conseguindo enviar e-mails.`,
+        "Ele chega duas vezes por mês para manter a conta de envio ativa. Não precisa fazer nada.",
+      ],
+    }),
+    texto: `Aviso automático de ${data}: o app da ${nomeArena} continua conseguindo enviar e-mails. Ele chega duas vezes por mês para manter a conta de envio ativa. Não precisa fazer nada.`,
+  };
+}
