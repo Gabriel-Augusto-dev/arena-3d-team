@@ -38,7 +38,6 @@ export default function AlunosProfessor() {
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [turmaFiltro, setTurmaFiltro] = useState("");
   const [novo, setNovo] = useState(false);
-  const [buscou, setBuscou] = useState(false);
   // Administrador: alunos de um professor ("eu" ou o id do auxiliar). Vazio = todos
   const [professorFiltro, setProfessorFiltro] = useState("");
   const filtrandoProfessor = ehAdministrador && professorFiltro !== "";
@@ -79,7 +78,8 @@ export default function AlunosProfessor() {
 
   const contar = (f: Filtro) => comSituacao.filter(regras[f]).length;
 
-  const lista = comSituacao.filter((item) => {
+  const lista = comSituacao
+    .filter((item) => {
     if (!regras[filtro](item)) return false;
     if (turmaFiltro && !ehMensalistaDaTurma(item.aluno, turmaFiltro)) return false;
     if (!busca.trim()) return true;
@@ -89,7 +89,8 @@ export default function AlunosProfessor() {
       contemTexto(item.aluno.email, busca) ||
       (numeros.length >= 3 && (item.aluno.cpf.includes(numeros) || item.aluno.whatsapp.includes(numeros)))
     );
-  });
+    })
+    .sort((a, b) => a.aluno.nome.localeCompare(b.aluno.nome, "pt-BR"));
 
   return (
     <>
@@ -114,12 +115,11 @@ export default function AlunosProfessor() {
             placeholder="Nome, CPF ou WhatsApp"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") setBuscou(true); }}
             aria-label="Buscar aluno"
           />
           <select
             value={turmaFiltro}
-            onChange={(e) => { setTurmaFiltro(e.target.value); setBuscou(true); }}
+            onChange={(e) => setTurmaFiltro(e.target.value)}
             aria-label="Filtrar por turma"
             className="h-12 max-w-[42%] rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
           >
@@ -134,10 +134,7 @@ export default function AlunosProfessor() {
         {ehAdministrador && auxiliares.length > 0 && (
           <select
             value={professorFiltro}
-            onChange={(e) => {
-              setProfessorFiltro(e.target.value);
-              setBuscou(true);
-            }}
+            onChange={(e) => setProfessorFiltro(e.target.value)}
             aria-label="Filtrar por professor"
             className="h-12 rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
           >
@@ -160,23 +157,12 @@ export default function AlunosProfessor() {
             { valor: "inativos", rotulo: "Inativos", contador: contar("inativos") },
           ]}
           ativa={filtro}
-          aoMudar={(f) => { setFiltro(f); setBuscou(true); }}
+          aoMudar={setFiltro}
         />
-        {!buscou && (
-          <Botao
-            variante="destaque"
-            tamanho="grande"
-            larguraTotal
-            icone={Search}
-            onClick={() => setBuscou(true)}
-          >
-            Buscar alunos
-          </Botao>
-        )}
       </div>
 
       <div className="mt-5">
-        {!buscou ? null : carregando || carregandoProfessor ? (
+        {carregando || carregandoProfessor ? (
           <EsqueletoLista linhas={5} />
         ) : lista.length ? (
           <ul className="grid gap-2 md:grid-cols-2">

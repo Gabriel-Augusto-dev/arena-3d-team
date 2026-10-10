@@ -2,7 +2,8 @@ import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Presenca, Turma, Usuario } from "@/tipos";
 import { adicionarDias, diaDaSemana, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { operacaoNotificarAluno } from "./servicoNotificacoes";
-import { ehDiaExtra, TURMA_DIA_EXTRA } from "./regras/regrasAula";
+import { ehDiaExtra, tipoPresencaPeloProfessor, TURMA_DIA_EXTRA } from "./regras/regrasAula";
+import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { ehMensalistaDaTurma } from "./regras/regrasMensalidade";
 
 export const DIAS_AGENDA_AUTOMATICA = 21;
@@ -168,4 +169,85 @@ export async function removerPresenca(presenca: Presenca) {
     }
   }
   await banco.lote(operacoes);
+}
+
+/** Como o Day Use fica quando o professor coloca o aluno na lista */
+export type PagamentoNaHora = "a_pagar" | "dinheiro" | "pix";
+
+/**
+ * Professor coloca um aluno na lista de presença (ex.: chegou sem marcar pelo app).
+ * Mensalista em dia entra sem custo; os demais entram como Day Use, que fica
+ * "a pagar" ou já confirmado, se o aluno pagou ali na hora.
+ */
+export async function adicionarPresenca(
+  alunoId: string,
+  aula: Aula,
+  professorId: string,
+  pagamentoNaHora: PagamentoNaHora,
+): Promise<Presenca["tipo"]> {
+  const [aulaAtual, aluno, jaNaLista, config] = await Promise.all([
+    banco.obter("aulas", aula.id),
+    banco.obter("usuarios", alunoId),
+    banco.listar("presencas", [onde("alunoId", "==", alunoId), onde("dataAula", "==", aula.data)]),
+    obterConfiguracoes(),
+  ]);
+  if (!aulaAtual) throw new Error("Esta aula não existe mais");
+  if (aulaAtual.status === "cancelada") throw new Error("Esta aula foi cancelada");
+  if (!aluno || aluno.perfil !== "aluno") throw new Error("Aluno não encontrado");
+  if (!aluno.ativo) throw new Error(`${aluno.nome} está com o cadastro desativado`);
+  if (jaNaLista.some((p) => p.aulaId === aula.id && p.status === "confirmada")) {
+    throw new Error(`${aluno.nome} já está na lista desta aula`);
+  }
+
+  const tipo = tipoPresencaPeloProfessor(aulaAtual, aluno, config);
+  const presencaId = banco.novoId("presencas");
+  const pagamentoId = tipo === "day_use" ? banco.novoId("pagamentos") : null;
+  const operacoes: OperacaoLote[] = [
+    {
+      tipo: "definir",
+      colecao: "presencas",
+      id: presencaId,
+      dados: {
+        aulaId: aulaAtual.id,
+        turmaId: aulaAtual.turmaId,
+        dataAula: aulaAtual.data,
+        alunoId: aluno.id,
+        alunoNome: aluno.nome,
+        tipo,
+        status: "confirmada",
+        pagamentoId,
+      },
+    },
+  ];
+
+  if (pagamentoId) {
+    const pago = pagamentoNaHora !== "a_pagar";
+    operacoes.push({
+      tipo: "definir",
+      colecao: "pagamentos",
+      id: pagamentoId,
+      dados: {
+        alunoId: aluno.id,
+        alunoNome: aluno.nome,
+        tipo: "day_use",
+        valor: config.valorDayUse,
+        forma: pagamentoNaHora === "dinheiro" ? "dinheiro" : "pix",
+        status: pago ? "confirmado" : "pendente",
+        vencimento: aulaAtual.data,
+        aulaId: aulaAtual.id,
+        presencaId,
+        turmaId: aulaAtual.turmaId,
+        cicloInicio: null,
+        cicloFim: null,
+        informadoEm: null,
+        observacaoAluno: "",
+        motivoRecusa: "",
+        confirmadoPor: pago ? professorId : null,
+        confirmadoEm: pago ? new Date().toISOString() : null,
+      },
+    });
+  }
+
+  await banco.lote(operacoes);
+  return tipo;
 }

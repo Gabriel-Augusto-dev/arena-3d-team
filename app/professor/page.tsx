@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarPlus, TriangleAlert } from "lucide-react";
+import { CalendarPlus, ChevronRight, Hourglass, TriangleAlert } from "lucide-react";
 import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
@@ -18,6 +18,7 @@ import { EsqueletoLista, LinkSecao, TituloSecao } from "@/componentes/interface/
 import { formatarDataExtenso, formatarDataRelativa, hojeISO, saudacao } from "@/lib/utilitarios/datas";
 import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
 import { ehDiaExtra, presencasDaAula } from "@/servicos/regras/regrasAula";
+import { somaValores } from "@/servicos/regras/regrasPagamento";
 import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
 import { criarDiaExtra } from "@/servicos/servicoAulas";
 import type { Aula } from "@/tipos";
@@ -25,7 +26,7 @@ import type { Aula } from "@/tipos";
 export default function InicioProfessor() {
   const professor = useUsuarioLogado();
   const { ehAdministrador } = useAutenticacao();
-  const { turmaPorId, turmas, aulas, presencas, pagamentos, configuracoes, nomeResponsavel, carregando } =
+  const { turmaPorId, turmas, aulas, presencas, pagamentos, paraConferir, configuracoes, nomeResponsavel, carregando } =
     useDadosProfessor();
   const [aulaAberta, setAulaAberta] = useState<string | null>(null);
   const [criandoDiaExtra, setCriandoDiaExtra] = useState(false);
@@ -95,6 +96,32 @@ export default function InicioProfessor() {
           </Botao>
         )}
       </header>
+
+      {/* PIX avisados pelos alunos: a tarefa do dia do administrador */}
+      {ehAdministrador && paraConferir.length > 0 && (
+        <Link
+          href="/professor/financeiro?aba=conferir"
+          className="mb-6 flex items-center gap-4 rounded-3xl bg-laranja-500 p-4 text-marinho-950 shadow-lg shadow-laranja-500/20 transition hover:bg-laranja-400"
+        >
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-marinho-950/10">
+            <Hourglass className="size-6" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-titulo text-xl font-extrabold leading-tight">
+              {paraConferir.length === 1 ? "1 PIX para conferir" : `${paraConferir.length} PIX para conferir`}
+              <span className="numeros ml-2 text-base font-bold opacity-80">{formatarMoeda(somaValores(paraConferir))}</span>
+            </span>
+            <span className="block truncate text-sm font-medium opacity-85">
+              {paraConferir
+                .slice(0, 3)
+                .map((p) => primeiroNome(p.alunoNome))
+                .join(", ")}
+              {paraConferir.length > 3 ? ` e mais ${paraConferir.length - 3}` : ""} · toque para conferir
+            </span>
+          </span>
+          <ChevronRight className="size-5 shrink-0" />
+        </Link>
+      )}
 
       {/* Primeiros passos do administrador: PIX e turmas */}
       {ehAdministrador && !carregando && (!configuracoes.chavePix || turmas.length === 0) && (

@@ -146,6 +146,25 @@ export function avaliarPresenca(
   return { tipo: "day_use", motivo: !ehMensalista ? "avulso" : "outra_turma" };
 }
 
+/**
+ * Professor colocando um aluno na lista (chegou sem marcar pelo app).
+ * Não bloqueia por atraso nem por horário: quem decide é o professor.
+ * Só entra sem custo o mensalista com a mensalidade em dia daquela turma
+ * (ou de qualquer turma, se liberado nos Ajustes); no dia extra todos pagam.
+ */
+export function tipoPresencaPeloProfessor(
+  aula: Aula,
+  aluno: Usuario,
+  configuracoes: Pick<Configuracoes, "mensalistaQualquerTurma">,
+): Presenca["tipo"] {
+  if (ehDiaExtra(aula)) return "day_use";
+  const matriculas = matriculasDoAluno(aluno);
+  const daTurma = matriculas.find((m) => m.turmaId === aula.turmaId);
+  if (daTurma) return situacaoDaValidade(daTurma.validade).acessoLiberado ? "mensalista" : "day_use";
+  const algumaEmDia = matriculas.some((m) => situacaoDaValidade(m.validade).acessoLiberado);
+  return algumaEmDia && configuracoes.mensalistaQualquerTurma ? "mensalista" : "day_use";
+}
+
 /** Presenças confirmadas de uma aula (lista do professor) */
 export function presencasDaAula(aula: Aula, presencas: Presenca[]): Presenca[] {
   return presencas

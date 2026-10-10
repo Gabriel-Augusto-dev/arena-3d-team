@@ -9,7 +9,6 @@ import { onde } from "@/lib/banco";
 import { CartaoPendencia } from "@/componentes/professor/CartaoPendencia";
 import { CartaoCobranca } from "@/componentes/professor/CartaoCobranca";
 import { ItemPagamento } from "@/componentes/pagamentos/ItemPagamento";
-import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
 import { Abas, CartaoNumero, EsqueletoLista, EstadoVazio, FichasFiltro, TituloPagina } from "@/componentes/interface/Elementos";
 import { adicionarDias, competencia, formatarCompetencia, formatarDataHora, hojeISO } from "@/lib/utilitarios/datas";
@@ -29,7 +28,6 @@ export default function FinanceiroProfessor() {
   const [tipo, setTipo] = useState<FiltroTipo>("todos");
   const [mes, setMes] = useState(competencia(hojeISO()));
   const [busca, setBusca] = useState("");
-  const [buscou, setBuscou] = useState(false);
 
   const emAtraso = cobrancasEmAtraso(aReceber);
   const noPrazo = aReceber.filter((p) => !emAtraso.includes(p));
@@ -104,7 +102,7 @@ export default function FinanceiroProfessor() {
             { valor: "historico", rotulo: "Histórico" },
           ]}
           ativa={aba}
-          aoMudar={(a) => { setAba(a); setBuscou(false); }}
+          aoMudar={setAba}
         />
 
         {carregando ? (
@@ -177,12 +175,11 @@ export default function FinanceiroProfessor() {
                   placeholder="Buscar aluno"
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") setBuscou(true); }}
                   aria-label="Buscar aluno"
                 />
                 <select
                   value={mes}
-                  onChange={(e) => { setMes(e.target.value); setBuscou(true); }}
+                  onChange={(e) => setMes(e.target.value)}
                   aria-label="Mês"
                   className="h-12 rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
                 >
@@ -200,21 +197,12 @@ export default function FinanceiroProfessor() {
                   { valor: "day_use", rotulo: "Day Use" },
                 ]}
                 ativa={tipo}
-                aoMudar={(t) => { setTipo(t); setBuscou(true); }}
+                aoMudar={setTipo}
               />
-              {!buscou && (
-                <Botao
-                  variante="destaque"
-                  tamanho="grande"
-                  larguraTotal
-                  icone={Search}
-                  onClick={() => setBuscou(true)}
-                >
-                  Buscar histórico
-                </Botao>
-              )}
             </div>
-            {buscou && (historico.length ? (
+            {doMes.carregando ? (
+              <EsqueletoLista />
+            ) : historico.length ? (
               <ul className="grid gap-2 lg:grid-cols-2">
                 {historico.map((p) => (
                   <li key={p.id}>
@@ -228,7 +216,7 @@ export default function FinanceiroProfessor() {
               </ul>
             ) : (
               <EstadoVazio icone={Receipt} titulo="Nada neste mês" descricao="Troque o mês ou os filtros." compacto />
-            ))}
+            )}
           </>
         )}
       </div>
