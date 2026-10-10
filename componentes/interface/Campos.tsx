@@ -206,7 +206,8 @@ export function CampoData({
   aoMudar,
   min,
   max,
-}: Moldura & { valor: string; aoMudar(iso: string): void; min?: string; max?: string }) {
+  autoComplete = "bday",
+}: Moldura & { valor: string; aoMudar(iso: string): void; min?: string; max?: string; autoComplete?: string }) {
   const id = useId();
   const calendario = useRef<HTMLInputElement>(null);
   const [texto, setTexto] = useState(() => isoParaTexto(valor));
@@ -256,7 +257,7 @@ export function CampoData({
           id={id}
           type="text"
           inputMode="numeric"
-          autoComplete="bday"
+          autoComplete={autoComplete}
           placeholder="DD/MM/AAAA"
           maxLength={10}
           aria-invalid={!!(erroLocal ?? erro)}

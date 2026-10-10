@@ -22,20 +22,21 @@ export default function EquipeProfessor() {
 
   return (
     <>
-      <TituloPagina titulo="Equipe" subtitulo="Aulas, presenças e repasse de cada professor auxiliar" />
+      <TituloPagina titulo="Equipe" subtitulo="Quanto passar para cada auxiliar" />
 
       {carregando ? (
         <EsqueletoLista />
       ) : !auxiliar ? (
         <EstadoVazio
           icone={UsersRound}
-          titulo="Comece cadastrando o auxiliar"
-          descricao="Cadastre abaixo e, em Turmas, escolha ele como professor responsável das turmas que ele dá. O relatório e o repasse aparecem aqui."
+          titulo="Nenhum auxiliar ainda"
+          descricao="Adicione um auxiliar abaixo."
+          compacto
         />
       ) : (
         <>
           {lista.length > 1 && (
-            <div className="mb-5">
+            <div className="mb-4">
               <FichasFiltro<string>
                 opcoes={lista.map((a) => ({ valor: a.id, rotulo: a.nome }))}
                 ativa={auxiliar.id}

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, Power, UserPlus, UsersRound } from "lucide-react";
+import { KeyRound, Power, UserPlus } from "lucide-react";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
-import { Avatar, Cartao, EsqueletoLista, Selo, TituloSecao } from "@/componentes/interface/Elementos";
+import { Avatar, Cartao, EsqueletoLista, TituloSecao } from "@/componentes/interface/Elementos";
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo } from "@/componentes/interface/Campos";
 import { Folha } from "@/componentes/interface/Folha";
@@ -16,11 +16,7 @@ import { alternarAlunoAtivo, reenviarAcesso } from "@/servicos/servicoAlunos";
 import type { Usuario } from "@/tipos";
 import { FolhaAcessoEnviado } from "./FolhaAcessoEnviado";
 
-/**
- * Equipe: professores auxiliares cadastrados pelo administrador.
- * O auxiliar entra no mesmo app e vê alunos, aulas, presenças e quem pagou,
- * mas não confirma pagamentos nem altera cadastros, turmas ou ajustes.
- */
+/** Lista dos professores auxiliares: adicionar, reenviar acesso e desativar. */
 export function SecaoEquipe() {
   // Mesma lista que a área do professor já mantém em tempo real (sem consulta extra)
   const { auxiliares, carregando } = useDadosProfessor();
@@ -60,67 +56,60 @@ export function SecaoEquipe() {
   return (
     <section>
       <TituloSecao
-        titulo="Equipe"
+        titulo="Auxiliares"
         acao={
           <Botao variante="secundario" tamanho="pequeno" icone={UserPlus} onClick={() => setNovo(true)}>
-            Adicionar auxiliar
+            Adicionar
           </Botao>
         }
       />
-      <Cartao className="flex flex-col gap-3">
-        {carregando ? (
-          <EsqueletoLista linhas={1} />
-        ) : ordenados.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-2xl bg-fundo px-4 py-3 text-sm text-suave">
-            <UsersRound className="size-5 shrink-0 text-marinho-400" />
-            Nenhum professor auxiliar cadastrado.
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
+      {carregando ? (
+        <EsqueletoLista linhas={1} />
+      ) : ordenados.length === 0 ? (
+        <p className="text-sm text-suave">Nenhum auxiliar cadastrado.</p>
+      ) : (
+        <Cartao className="p-0">
+          <ul className="divide-y divide-linha/70">
             {ordenados.map((auxiliar) => (
-              <li
-                key={auxiliar.id}
-                className={`flex flex-col gap-2 rounded-2xl bg-fundo p-3 ${auxiliar.ativo ? "" : "opacity-70"}`}
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar nome={auxiliar.nome} tamanho="pequeno" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{auxiliar.nome}</p>
-                    <p className="truncate text-[13px] text-suave">
-                      {auxiliar.email}
-                      {auxiliar.whatsapp ? ` · ${formatarTelefone(auxiliar.whatsapp)}` : ""}
-                    </p>
-                  </div>
-                  {auxiliar.ativo ? <Selo tom="verde">Ativo</Selo> : <Selo tom="cinza">Desativado</Selo>}
+              <li key={auxiliar.id} className={`flex items-center gap-3 px-4 py-3 ${auxiliar.ativo ? "" : "opacity-60"}`}>
+                <Avatar nome={auxiliar.nome} tamanho="pequeno" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">
+                    {auxiliar.nome}
+                    {!auxiliar.ativo && <span className="ml-2 text-xs font-normal text-suave">(desativado)</span>}
+                  </p>
+                  <p className="truncate text-[13px] text-suave">{auxiliar.email}</p>
                 </div>
-                <div className="flex justify-end gap-1">
-                  {auxiliar.ativo && (
-                    <Botao
-                      variante="fantasma"
-                      tamanho="pequeno"
-                      icone={KeyRound}
-                      carregando={ocupado === auxiliar.id + "acesso"}
-                      onClick={() => reenviar(auxiliar)}
-                    >
-                      Reenviar acesso
-                    </Botao>
-                  )}
+                {auxiliar.ativo && (
                   <Botao
                     variante="fantasma"
                     tamanho="pequeno"
-                    icone={Power}
-                    className={auxiliar.ativo ? "text-erro hover:bg-erro-fundo" : ""}
-                    carregando={ocupado === auxiliar.id + "ativo"}
-                    onClick={() => alternar(auxiliar)}
+                    icone={KeyRound}
+                    aria-label="Reenviar acesso"
+                    title="Reenviar acesso"
+                    carregando={ocupado === auxiliar.id + "acesso"}
+                    onClick={() => reenviar(auxiliar)}
                   >
-                    {auxiliar.ativo ? "Desativar" : "Reativar"}
+                    <span className="hidden sm:inline">Reenviar acesso</span>
                   </Botao>
-                </div>
+                )}
+                <Botao
+                  variante="fantasma"
+                  tamanho="pequeno"
+                  icone={Power}
+                  aria-label={auxiliar.ativo ? "Desativar" : "Reativar"}
+                  title={auxiliar.ativo ? "Desativar" : "Reativar"}
+                  className={auxiliar.ativo ? "text-erro hover:bg-erro-fundo" : ""}
+                  carregando={ocupado === auxiliar.id + "ativo"}
+                  onClick={() => alternar(auxiliar)}
+                >
+                  <span className="hidden sm:inline">{auxiliar.ativo ? "Desativar" : "Reativar"}</span>
+                </Botao>
               </li>
             ))}
           </ul>
-        )}
-      </Cartao>
+        </Cartao>
+      )}
 
       {novo && (
         <FolhaNovoAuxiliar
@@ -183,7 +172,7 @@ function FolhaNovoAuxiliar({
       aberta
       aoFechar={aoFechar}
       titulo="Novo professor auxiliar"
-      descricao="Ele recebe um e-mail para criar a senha e entra no mesmo app."
+      descricao="Ele recebe um e-mail para criar a senha."
       rodape={
         <Botao tamanho="grande" larguraTotal carregando={salvando} onClick={salvar}>
           Cadastrar e enviar acesso

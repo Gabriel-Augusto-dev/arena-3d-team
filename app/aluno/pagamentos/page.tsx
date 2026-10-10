@@ -1,14 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Receipt, Search } from "lucide-react";
+import { Receipt } from "lucide-react";
+import { onde } from "@/lib/banco";
+import { useColecao } from "@/ganchos/useColecao";
+import { useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { CartaoMensalidade } from "@/componentes/pagamentos/CartaoMensalidade";
 import { FolhaPagarCobrancas } from "@/componentes/pagamentos/FolhaPagarCobrancas";
 import { ItemPagamento } from "@/componentes/pagamentos/ItemPagamento";
 import { Botao } from "@/componentes/interface/Botao";
+import { CampoData } from "@/componentes/interface/Campos";
 import { EsqueletoLista, EstadoVazio, FichasFiltro, TituloPagina, TituloSecao } from "@/componentes/interface/Elementos";
-import { formatarDataRelativa } from "@/lib/utilitarios/datas";
+import { adicionarDias, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { somaValores } from "@/servicos/regras/regrasPagamento";
 import type { Pagamento, TipoPagamento } from "@/tipos";
@@ -19,14 +23,29 @@ export default function PagamentosAluno() {
   const { meusPagamentos, cobrancasAbertas, cobrancasAtrasadas, aulas, turmaPorId, carregando } = useDadosAluno();
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [pagando, setPagando] = useState<Pagamento[] | null>(null);
-  const [verHistorico, setVerHistorico] = useState(false);
-
-  const emAnalise = meusPagamentos.filter((p) => p.status === "em_analise");
-  const historico = meusPagamentos.filter(
-    (p) => (p.status === "confirmado" || p.status === "recusado") && (filtro === "todos" || p.tipo === filtro),
+  const aluno = useUsuarioLogado();
+  const hoje = hojeISO();
+  const anoAtual = hoje.slice(0, 4);
+  // Histórico: o aluno escolhe o período (começa no ano atual)
+  const [de, setDe] = useState(`${anoAtual}-01-01`);
+  const [ate, setAte] = useState(hoje);
+  const periodoValido = !!de && !!ate && de <= ate;
+  const pagamentosPeriodo = useColecao(
+    "pagamentos",
+    [
+      onde("alunoId", "==", aluno.id),
+      onde("criadoEm", ">=", new Date(`${de || hoje}T00:00:00`).toISOString()),
+      onde("criadoEm", "<", new Date(`${adicionarDias(ate || hoje, 1)}T00:00:00`).toISOString()),
+    ],
+    periodoValido,
   );
 
-  const anoAtual = String(new Date().getFullYear());
+  const emAnalise = meusPagamentos.filter((p) => p.status === "em_analise");
+  const historico = pagamentosPeriodo.dados
+    .filter((p) => (p.status === "confirmado" || p.status === "recusado") && (filtro === "todos" || p.tipo === filtro))
+    .sort((a, b) => (b.confirmadoEm ?? b.criadoEm).localeCompare(a.confirmadoEm ?? a.criadoEm));
+  const totalPeriodo = historico.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0);
+
   const totalAno = useMemo(
     () =>
       meusPagamentos
@@ -100,23 +119,12 @@ export default function PagamentosAluno() {
         </div>
 
         <section>
-          <TituloSecao
-            titulo="Histórico · últimos 12 meses"
-            acao={
-              verHistorico && (
-                <Botao variante="fantasma" tamanho="pequeno" onClick={() => setVerHistorico(false)}>
-                  Ocultar
-                </Botao>
-              )
-            }
-          />
-          {!verHistorico ? (
-            <Botao variante="secundario" larguraTotal icone={Search} onClick={() => setVerHistorico(true)}>
-              Buscar histórico de pagamentos
-            </Botao>
-          ) : (
-          <>
-          <div className="mb-3">
+          <TituloSecao titulo="Histórico" />
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <CampoData rotulo="De" valor={de} aoMudar={setDe} max={ate || hoje} autoComplete="off" />
+            <CampoData rotulo="Até" valor={ate} aoMudar={setAte} min={de || undefined} max={hoje} autoComplete="off" />
+          </div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <FichasFiltro<Filtro>
               opcoes={[
                 { valor: "todos", rotulo: "Todos" },
@@ -126,8 +134,15 @@ export default function PagamentosAluno() {
               ativa={filtro}
               aoMudar={setFiltro}
             />
+            {periodoValido && historico.length > 0 && (
+              <p className="text-sm text-suave">
+                Total pago: <strong className="numeros text-tinta">{formatarMoeda(totalPeriodo)}</strong>
+              </p>
+            )}
           </div>
-          {carregando ? (
+          {!periodoValido ? (
+            <p className="text-sm text-suave">Escolha as datas de início e fim.</p>
+          ) : carregando || pagamentosPeriodo.carregando ? (
             <EsqueletoLista />
           ) : historico.length ? (
             <ul className="flex flex-col gap-2">
@@ -138,14 +153,7 @@ export default function PagamentosAluno() {
               ))}
             </ul>
           ) : (
-            <EstadoVazio
-              icone={Receipt}
-              titulo="Nenhum pagamento ainda"
-              descricao="Mensalidades e Day Use pagos aparecem aqui."
-              compacto
-            />
-          )}
-          </>
+            <EstadoVazio icone={Receipt} titulo="Nenhum pagamento neste período" compacto />
           )}
         </section>
       </div>
