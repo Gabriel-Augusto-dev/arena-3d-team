@@ -194,12 +194,12 @@ export function FolhaFormularioAluno({
                       />
                     </label>
                     {matricula && (
-                      <Campo
+                      <CampoData
                         className="mt-3"
                         rotulo="Mensalidade válida até"
-                        type="date"
-                        value={matricula.validade ?? ""}
-                        onChange={(e) => mudarValidade(t.id, e.target.value)}
+                        valor={matricula.validade ?? ""}
+                        aoMudar={(v) => mudarValidade(t.id, v)}
+                        autoComplete="off"
                         dica="Ajuste manual. O normal é confirmar o pagamento no Financeiro"
                       />
                     )}

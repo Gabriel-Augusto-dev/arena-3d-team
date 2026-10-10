@@ -36,7 +36,8 @@ import {
   Selo,
 } from "@/componentes/interface/Elementos";
 import { TONS_MENSALIDADE, ROTULOS_STATUS_PRESENCA } from "@/lib/rotulos";
-import { descreverDiasSemana, formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
+import { descreverDiasSemana, formatarData, formatarDataRelativa, hojeISO, paraDataISO } from "@/lib/utilitarios/datas";
+import { CampoData } from "@/componentes/interface/Campos";
 import {
   calcularIdade,
   formatarCpf,
@@ -73,6 +74,9 @@ export default function DetalheAluno() {
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [reenviando, setReenviando] = useState(false);
   const [acesso, setAcesso] = useState<ResultadoNovaConta | null>(null);
+  // Período das abas Pagamentos e Presenças (vazio = sem limite). Começa no ano atual
+  const [de, setDe] = useState(`${hojeISO().slice(0, 4)}-01-01`);
+  const [ate, setAte] = useState("");
 
   // Histórico completo de presenças do aluno
   const { dados: presencasDoAluno } = useColecao("presencas", [onde("alunoId", "==", id)]);
@@ -90,6 +94,13 @@ export default function DetalheAluno() {
     () => presencasDoAluno.filter(presencaVisivel).sort((a, b) => b.dataAula.localeCompare(a.dataAula)),
     [presencasDoAluno, presencaVisivel],
   );
+
+  const noPeriodo = (data: string) => (!de || data >= de) && (!ate || data <= ate);
+  // Pagamento em aberto (a pagar ou aguardando conferir) aparece sempre, fora de qualquer período
+  const pagamentosPeriodo = meusPagamentos.filter(
+    (p) => p.status === "pendente" || p.status === "em_analise" || noPeriodo(paraDataISO(new Date(p.criadoEm))),
+  );
+  const presencasPeriodo = minhasAulas.filter((p) => noPeriodo(p.dataAula));
 
   if (carregando) return <Carregando />;
   if (!aluno)
@@ -268,19 +279,42 @@ export default function DetalheAluno() {
         </div>
 
         <section>
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <CampoData rotulo="De" valor={de} aoMudar={setDe} max={ate || undefined} autoComplete="off" />
+            <CampoData rotulo="Até" valor={ate} aoMudar={setAte} min={de || undefined} autoComplete="off" />
+          </div>
+          <p className="-mt-1 mb-4 flex flex-wrap items-center gap-x-2 text-[13px] text-suave">
+            {!de && !ate
+              ? "Mostrando todo o histórico."
+              : !ate
+                ? "Sem data final: inclui as próximas aulas."
+                : "Pagamentos em aberto aparecem sempre."}
+            {(de || ate) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDe("");
+                  setAte("");
+                }}
+                className="font-semibold text-marinho-600 hover:text-marinho-800"
+              >
+                Ver tudo
+              </button>
+            )}
+          </p>
           <Abas<Aba>
             className="mb-4"
             abas={[
-              { valor: "pagamentos", rotulo: "Pagamentos", contador: meusPagamentos.length },
-              { valor: "aulas", rotulo: "Presenças", contador: minhasAulas.filter((p) => p.status === "confirmada").length },
+              { valor: "pagamentos", rotulo: "Pagamentos", contador: pagamentosPeriodo.length },
+              { valor: "aulas", rotulo: "Presenças", contador: presencasPeriodo.filter((p) => p.status === "confirmada").length },
             ]}
             ativa={aba}
             aoMudar={setAba}
           />
           {aba === "pagamentos" ? (
-            meusPagamentos.length ? (
+            pagamentosPeriodo.length ? (
               <ul className="flex flex-col gap-2">
-                {meusPagamentos.map((p) => {
+                {pagamentosPeriodo.map((p) => {
                   const sit = situacaoCobranca(p);
                   const pendente = sit === "em_analise";
                   return (
@@ -317,11 +351,15 @@ export default function DetalheAluno() {
                 })}
               </ul>
             ) : (
-              <EstadoVazio icone={Receipt} titulo="Nenhum pagamento" compacto />
+              <EstadoVazio
+                icone={Receipt}
+                titulo={meusPagamentos.length ? "Nenhum pagamento neste período" : "Nenhum pagamento"}
+                compacto
+              />
             )
-          ) : minhasAulas.length ? (
+          ) : presencasPeriodo.length ? (
             <ul className="flex flex-col gap-2">
-              {minhasAulas.map((p) => {
+              {presencasPeriodo.map((p) => {
                 const status = ROTULOS_STATUS_PRESENCA[p.status];
                 return (
                   <li key={p.id} className="flex items-center gap-3 rounded-2xl bg-white p-3.5 ring-1 ring-linha/70">
@@ -339,8 +377,12 @@ export default function DetalheAluno() {
           ) : (
             <EstadoVazio
               icone={CalendarX}
-              titulo="Nenhuma presença"
-              descricao="As aulas em que o aluno marcar presença aparecem aqui."
+              titulo={minhasAulas.length ? "Nenhuma presença neste período" : "Nenhuma presença"}
+              descricao={
+                minhasAulas.length
+                  ? "Troque as datas ou toque em “Ver tudo”."
+                  : "As aulas em que o aluno marcar presença aparecem aqui."
+              }
               compacto
             />
           )}

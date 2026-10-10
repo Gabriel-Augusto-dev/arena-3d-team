@@ -7,7 +7,7 @@ import { useColecao } from "@/ganchos/useColecao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { ItemPagamento } from "@/componentes/pagamentos/ItemPagamento";
-import { Campo } from "@/componentes/interface/Campos";
+import { Campo, CampoData } from "@/componentes/interface/Campos";
 import { Abas, Avatar, Cartao, EsqueletoLista, EstadoVazio, Selo } from "@/componentes/interface/Elementos";
 import {
   adicionarDias,
@@ -179,8 +179,8 @@ export function RelatorioAuxiliar({
         />
         {tipo === "periodo" ? (
           <div className="grid flex-1 grid-cols-2 gap-3 sm:max-w-md">
-            <Campo rotulo="De" type="date" value={de} onChange={(e) => setDe(e.target.value)} />
-            <Campo rotulo="Até" type="date" value={ate} onChange={(e) => setAte(e.target.value)} />
+            <CampoData rotulo="De" valor={de} aoMudar={(v) => v && setDe(v)} autoComplete="off" />
+            <CampoData rotulo="Até" valor={ate} aoMudar={(v) => v && setAte(v)} autoComplete="off" />
           </div>
         ) : (
           <div className="flex flex-1 items-center gap-2 sm:max-w-md">

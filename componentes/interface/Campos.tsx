@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState } from "react";
-import { CalendarDays, Eye, EyeOff, type LucideIcon } from "lucide-react";
+import { CalendarDays, Clock, Eye, EyeOff, type LucideIcon } from "lucide-react";
 
 const estiloEntrada =
   "w-full rounded-xl bg-white px-3.5 text-[15px] text-tinta ring-1 ring-inset ring-linha placeholder:text-suave/60 transition focus:outline-none focus:ring-2 focus:ring-marinho-500 disabled:bg-fundo disabled:text-suave aria-[invalid=true]:ring-erro";
@@ -214,10 +214,15 @@ export function CampoData({
   const [valorAnterior, setValorAnterior] = useState(valor);
   const [foraDoLimite, setForaDoLimite] = useState(false);
 
-  // Valor mudou por fora (calendário ou formulário reiniciado): mostra a data nova
+  // Valor mudou por fora (calendário, formulário reiniciado ou filtro limpo): mostra a data nova.
+  // Data incompleta ou fora do limite também chega como "", e aí o que foi digitado fica.
   if (valor !== valorAnterior) {
     setValorAnterior(valor);
-    if (valor && valor !== textoParaIso(texto)) setTexto(isoParaTexto(valor));
+    if (valor) {
+      if (valor !== textoParaIso(texto)) setTexto(isoParaTexto(valor));
+    } else if (textoParaIso(texto) && !foraDoLimite) {
+      setTexto("");
+    }
   }
 
   const digitar = (bruto: string) => {
@@ -285,6 +290,123 @@ export function CampoData({
           onChange={(e) => {
             setForaDoLimite(false);
             setTexto(isoParaTexto(e.target.value));
+            aoMudar(e.target.value);
+          }}
+          className="pointer-events-none absolute bottom-0 right-0 h-px w-px opacity-0"
+        />
+      </div>
+    </MolduraCampo>
+  );
+}
+
+/** "1830" → "18:30" */
+function mascaraHora(texto: string): string {
+  const n = texto.replace(/\D/g, "").slice(0, 4);
+  return n.length <= 2 ? n : `${n.slice(0, 2)}:${n.slice(2)}`;
+}
+
+/** Só aceita horário completo e válido (00:00 a 23:59) */
+function textoParaHora(texto: string): string {
+  const n = texto.replace(/\D/g, "");
+  if (n.length !== 4) return "";
+  return Number(n.slice(0, 2)) > 23 || Number(n.slice(2)) > 59 ? "" : `${n.slice(0, 2)}:${n.slice(2)}`;
+}
+
+/** Ao sair do campo, completa o que ficou curto: "9" → "09:00", "930" → "09:30", "18" → "18:00" */
+function completarHora(texto: string): string {
+  const n = texto.replace(/\D/g, "");
+  if (n.length === 1 || n.length === 2) return `${n.padStart(2, "0")}:00`;
+  if (n.length === 3) return `0${n.slice(0, 1)}:${n.slice(1)}`;
+  return texto;
+}
+
+/**
+ * Horário que dá para DIGITAR (teclado numérico, máscara HH:MM) ou escolher
+ * no relógio pelo botão ao lado. `valor` e `aoMudar` usam "HH:MM";
+ * enquanto o horário está incompleto, vale "".
+ */
+export function CampoHora({
+  rotulo,
+  erro,
+  dica,
+  className,
+  valor,
+  aoMudar,
+}: Moldura & { valor: string; aoMudar(hora: string): void }) {
+  const id = useId();
+  const relogio = useRef<HTMLInputElement>(null);
+  const [texto, setTexto] = useState(valor);
+  const [valorAnterior, setValorAnterior] = useState(valor);
+
+  // Valor mudou por fora (relógio ou formulário reiniciado): mostra o horário novo
+  if (valor !== valorAnterior) {
+    setValorAnterior(valor);
+    if (valor && valor !== textoParaHora(texto)) setTexto(valor);
+  }
+
+  const digitar = (bruto: string) => {
+    const novo = mascaraHora(bruto);
+    setTexto(novo);
+    aoMudar(textoParaHora(novo));
+  };
+
+  const abrirRelogio = () => {
+    const campo = relogio.current;
+    if (!campo) return;
+    try {
+      campo.showPicker();
+    } catch {
+      campo.focus();
+      campo.click();
+    }
+  };
+
+  const incompleta = texto.length > 0 && texto.length < 5;
+  const invalida = texto.length === 5 && !textoParaHora(texto);
+  const erroLocal = invalida ? "Horário inválido" : undefined;
+
+  return (
+    <MolduraCampo
+      id={id}
+      rotulo={rotulo}
+      erro={erroLocal ?? (incompleta ? undefined : erro)}
+      dica={dica ?? (incompleta ? "Hora e minuto (HH:MM)" : undefined)}
+      className={className}
+    >
+      <div className="relative">
+        <input
+          id={id}
+          type="text"
+          inputMode="numeric"
+          autoComplete="off"
+          placeholder="HH:MM"
+          maxLength={5}
+          aria-invalid={!!(erroLocal ?? erro)}
+          className={`${estiloEntrada} h-12 pr-12`}
+          value={texto}
+          onChange={(e) => digitar(e.target.value)}
+          onBlur={() => {
+            const completo = completarHora(texto);
+            if (completo !== texto) digitar(completo);
+          }}
+        />
+        <button
+          type="button"
+          aria-label="Escolher no relógio"
+          onClick={abrirRelogio}
+          className="absolute right-1.5 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-lg text-suave transition hover:bg-fundo hover:text-tinta"
+        >
+          <Clock className="size-5" />
+        </button>
+        {/* Relógio nativo, invisível: só abre pelo botão */}
+        <input
+          ref={relogio}
+          type="time"
+          tabIndex={-1}
+          aria-hidden
+          value={valor}
+          onChange={(e) => {
+            setTexto(e.target.value);
             aoMudar(e.target.value);
           }}
           className="pointer-events-none absolute bottom-0 right-0 h-px w-px opacity-0"

@@ -12,7 +12,7 @@ import { FolhaDetalheAula } from "@/componentes/professor/FolhaDetalheAula";
 import { SeletorResponsavel } from "@/componentes/professor/SeletorResponsavel";
 import { CarimboEnviado } from "@/componentes/pagamentos/CarimboEnviado";
 import { Botao } from "@/componentes/interface/Botao";
-import { Campo } from "@/componentes/interface/Campos";
+import { CampoData, CampoHora } from "@/componentes/interface/Campos";
 import { Folha } from "@/componentes/interface/Folha";
 import { EsqueletoLista, LinkSecao, TituloSecao } from "@/componentes/interface/Elementos";
 import { formatarDataExtenso, formatarDataRelativa, hojeISO, saudacao } from "@/lib/utilitarios/datas";
@@ -260,10 +260,10 @@ function FolhaDiaExtra({ aoFechar }: { aoFechar(): void }) {
       }
     >
       <div className="flex flex-col gap-4">
-        <Campo rotulo="Dia" type="date" min={hojeISO()} value={data} onChange={(e) => setData(e.target.value)} />
+        <CampoData rotulo="Dia" valor={data} aoMudar={setData} min={hojeISO()} autoComplete="off" />
         <div className="grid grid-cols-2 gap-3">
-          <Campo rotulo="Início" type="time" value={inicio} onChange={(e) => setInicio(e.target.value)} />
-          <Campo rotulo="Término" type="time" value={fim} onChange={(e) => setFim(e.target.value)} />
+          <CampoHora rotulo="Início" valor={inicio} aoMudar={setInicio} />
+          <CampoHora rotulo="Término" valor={fim} aoMudar={setFim} />
         </div>
         <SeletorResponsavel valor={responsavelId} aoMudar={setResponsavelId} />
         <p className="rounded-2xl bg-alerta-fundo px-4 py-3 text-sm text-alerta">

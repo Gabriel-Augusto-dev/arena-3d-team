@@ -7,7 +7,7 @@ import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutentica
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
-import { Campo, CampoSelecao } from "@/componentes/interface/Campos";
+import { Campo, CampoHora, CampoSelecao } from "@/componentes/interface/Campos";
 import { NOMES_DIAS_CURTOS } from "@/lib/utilitarios/datas";
 import { ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { salvarTurma, type DadosTurma } from "@/servicos/servicoTurmas";
@@ -50,6 +50,7 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
   const salvar = async () => {
     if (!dados.nome.trim()) return setErro("Dê um nome para a turma");
     if (!dados.diasSemana.length) return setErro("Escolha pelo menos um dia da semana");
+    if (!dados.horarioInicio || !dados.horarioFim) return setErro("Informe o horário de início e de término (HH:MM)");
     if (dados.horarioFim <= dados.horarioInicio) return setErro("O horário de término precisa ser depois do início");
 
     setSalvando(true);
@@ -135,8 +136,8 @@ export function FolhaFormularioTurma({ turma, aoFechar }: { turma?: Turma; aoFec
         </fieldset>
 
         <div className="grid grid-cols-2 gap-3">
-          <Campo rotulo="Início" type="time" value={dados.horarioInicio} onChange={(e) => alterar("horarioInicio", e.target.value)} />
-          <Campo rotulo="Término" type="time" value={dados.horarioFim} onChange={(e) => alterar("horarioFim", e.target.value)} />
+          <CampoHora rotulo="Início" valor={dados.horarioInicio} aoMudar={(v) => alterar("horarioInicio", v)} />
+          <CampoHora rotulo="Término" valor={dados.horarioFim} aoMudar={(v) => alterar("horarioFim", v)} />
           <Campo
             rotulo="Mensalidade (R$)"
             type="number"
