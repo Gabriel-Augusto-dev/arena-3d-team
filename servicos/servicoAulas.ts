@@ -59,13 +59,6 @@ export async function garantirAulasFuturas(
   return operacoes.length;
 }
 
-/** Aula extra de uma turma fora dos dias fixos */
-export async function criarAulaExtra(turma: Turma, data: string) {
-  const id = idDaAula(turma.id, data);
-  if (await banco.obter("aulas", id)) throw new Error("Já existe aula desta turma nesse dia");
-  await banco.definir("aulas", id, montarAula(turma, data));
-}
-
 /**
  * Dia extra: um treino fora da agenda, no dia que o professor quiser.
  * Todos que marcarem presença pagam diária (inclusive mensalistas).

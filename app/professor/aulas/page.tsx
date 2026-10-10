@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarOff, CalendarPlus, Clock, MapPin, Pencil, Plus, Power, Trash, Users } from "lucide-react";
+import { CalendarOff, Clock, MapPin, Pencil, Plus, Power, Trash, Users } from "lucide-react";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
@@ -11,15 +11,12 @@ import { CartaoAulaProfessor } from "@/componentes/professor/CartaoAulaProfessor
 import { FolhaDetalheAula } from "@/componentes/professor/FolhaDetalheAula";
 import { FolhaFormularioTurma } from "@/componentes/professor/FolhaFormularioTurma";
 import { Botao } from "@/componentes/interface/Botao";
-import { Campo, CampoSelecao } from "@/componentes/interface/Campos";
-import { Folha } from "@/componentes/interface/Folha";
 import { Abas, EsqueletoLista, EstadoVazio, Selo, TituloPagina } from "@/componentes/interface/Elementos";
 import { adicionarDias, descreverDiasSemana, formatarDataExtenso, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
 import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
 import { descreverQuadra, presencasDaAula, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
-import { criarAulaExtra } from "@/servicos/servicoAulas";
 import { alternarTurmaAtiva, removerTurma } from "@/servicos/servicoTurmas";
 import type { Turma } from "@/tipos";
 
@@ -84,7 +81,6 @@ function Agenda() {
   const hoje = hojeISO();
   const [data, setData] = useState(hoje);
   const [aberta, setAberta] = useState<string | null>(null);
-  const [criandoExtra, setCriandoExtra] = useState(false);
 
   const pagamentoPorId = useMemo(() => new Map(pagamentos.map((p) => [p.id, p])), [pagamentos]);
   const datasComAula = useMemo(() => new Set(aulas.map((a) => a.data)), [aulas]);
@@ -93,14 +89,7 @@ function Agenda() {
   return (
     <>
       <FaixaDatas selecionada={data} aoSelecionar={setData} inicio={adicionarDias(hoje, -7)} dias={29} marcadas={datasComAula} />
-      <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-titulo text-xl font-bold">{formatarDataExtenso(data)}</h2>
-        {ehAdministrador && (
-          <Botao variante="secundario" tamanho="pequeno" icone={CalendarPlus} onClick={() => setCriandoExtra(true)}>
-            Aula extra
-          </Botao>
-        )}
-      </div>
+      <h2 className="mb-3 mt-5 font-titulo text-xl font-bold">{formatarDataExtenso(data)}</h2>
 
       {doDia.length ? (
         <ul className="grid gap-3 md:grid-cols-2">
@@ -125,61 +114,12 @@ function Agenda() {
         <EstadoVazio
           icone={CalendarOff}
           titulo="Sem aulas neste dia"
-          descricao={ehAdministrador ? "Escolha outro dia ou crie uma aula extra." : "Escolha outro dia."}
+          descricao={ehAdministrador ? "Escolha outro dia ou crie um dia extra na tela Início." : "Escolha outro dia."}
         />
       )}
 
       {aberta && <FolhaDetalheAula aulaId={aberta} aoFechar={() => setAberta(null)} />}
-      {criandoExtra && <FolhaAulaExtra dataInicial={data < hoje ? hoje : data} aoFechar={() => setCriandoExtra(false)} />}
     </>
-  );
-}
-
-function FolhaAulaExtra({ dataInicial, aoFechar }: { dataInicial: string; aoFechar(): void }) {
-  const { turmas } = useDadosProfessor();
-  const avisos = useAvisos();
-  const ativas = turmas.filter((t) => t.ativa);
-  const [turmaId, setTurmaId] = useState(ativas[0]?.id ?? "");
-  const [data, setData] = useState(dataInicial);
-  const [salvando, setSalvando] = useState(false);
-  const turma = ativas.find((t) => t.id === turmaId);
-
-  const salvar = async () => {
-    if (!turma) return;
-    setSalvando(true);
-    try {
-      await criarAulaExtra(turma, data);
-      avisos.sucesso("Aula extra criada");
-      aoFechar();
-    } catch (erro) {
-      avisos.erro(erro);
-      setSalvando(false);
-    }
-  };
-
-  return (
-    <Folha
-      aberta
-      aoFechar={aoFechar}
-      titulo="Aula extra"
-      descricao="Uma aula fora dos dias fixos da turma."
-      rodape={
-        <Botao tamanho="grande" larguraTotal carregando={salvando} onClick={salvar} disabled={!turma}>
-          Criar aula
-        </Botao>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <CampoSelecao rotulo="Turma" value={turmaId} onChange={(e) => setTurmaId(e.target.value)}>
-          {ativas.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.nome} ({t.horarioInicio} às {t.horarioFim})
-            </option>
-          ))}
-        </CampoSelecao>
-        <Campo rotulo="Data" type="date" min={hojeISO()} value={data} onChange={(e) => setData(e.target.value)} />
-      </div>
-    </Folha>
   );
 }
 
