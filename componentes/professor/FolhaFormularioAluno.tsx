@@ -6,7 +6,7 @@ import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
-import { Campo, CampoTexto, SeletorOpcoes } from "@/componentes/interface/Campos";
+import { Campo, CampoData, CampoTexto, SeletorOpcoes } from "@/componentes/interface/Campos";
 import { camposDasMatriculas, matriculasDoAluno, type Matricula } from "@/servicos/regras/regrasMensalidade";
 import { descreverDiasSemana, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarCpf, formatarMoeda, formatarTelefone } from "@/lib/utilitarios/formatadores";
@@ -137,12 +137,11 @@ export function FolhaFormularioAluno({
             onChange={(e) => alterar("cpf", e.target.value)}
             erro={erros.cpf}
           />
-          <Campo
+          <CampoData
             rotulo="Nascimento"
-            type="date"
             max={hojeISO()}
-            value={dados.dataNascimento}
-            onChange={(e) => alterar("dataNascimento", e.target.value)}
+            valor={dados.dataNascimento}
+            aoMudar={(iso) => alterar("dataNascimento", iso)}
             erro={erros.dataNascimento}
           />
           <Campo

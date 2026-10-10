@@ -8,7 +8,7 @@ import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { Avatar, Cartao, LinhaInfo, Selo, TituloPagina, TituloSecao } from "@/componentes/interface/Elementos";
 import { Botao } from "@/componentes/interface/Botao";
-import { Campo } from "@/componentes/interface/Campos";
+import { Campo, CampoData } from "@/componentes/interface/Campos";
 import { Folha } from "@/componentes/interface/Folha";
 import { descreverDiasSemana, formatarData, hojeISO } from "@/lib/utilitarios/datas";
 import { calcularIdade, formatarCpf, formatarMoeda, formatarTelefone, linkWhatsapp } from "@/lib/utilitarios/formatadores";
@@ -171,12 +171,11 @@ function FolhaEditarPerfil({ aoFechar }: { aoFechar(): void }) {
           onChange={(e) => setWhatsapp(e.target.value)}
           erro={erros.whatsapp}
         />
-        <Campo
+        <CampoData
           rotulo="Data de nascimento"
-          type="date"
           max={hojeISO()}
-          value={dataNascimento}
-          onChange={(e) => setDataNascimento(e.target.value)}
+          valor={dataNascimento}
+          aoMudar={setDataNascimento}
         />
       </div>
     </Folha>

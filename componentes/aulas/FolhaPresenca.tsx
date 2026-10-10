@@ -9,7 +9,7 @@ import { CarimboEnviado } from "@/componentes/pagamentos/CarimboEnviado";
 import { FolhaPagarCobrancas } from "@/componentes/pagamentos/FolhaPagarCobrancas";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
-import { formatarDataExtenso } from "@/lib/utilitarios/datas";
+import { aulaJaComecou, formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { descreverQuadra, nomeDoProfessor, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
@@ -252,6 +252,11 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                 >
                   Não vou mais — desmarcar presença
                 </Botao>
+              )}
+              {!situacao.podeDesmarcar && aulaJaComecou(aula.data, aula.horarioInicio) && (
+                <p className="text-center text-sm text-suave">
+                  A aula já começou: para desmarcar a presença, fale com o professor.
+                </p>
               )}
             </div>
           )}

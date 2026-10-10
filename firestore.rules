@@ -175,12 +175,23 @@ service cloud.firestore {
         )
       );
 
-      // Aluno só pode desmarcar a própria presença
+      // A aula ainda não começou? data "AAAA-MM-DD" e horário "HH:MM" em Brasília (UTC-3)
+      function aulaNaoComecou(aulaId) {
+        let aula = get(caminho('aulas', aulaId)).data;
+        let d = aula.data.split('-');
+        let h = aula.horarioInicio.split(':');
+        return request.time < timestamp.date(int(d[0]), int(d[1]), int(d[2]))
+          + duration.value(int(h[0]) * 60 + int(h[1]) + 180, 'm');
+      }
+
+      // Aluno só pode desmarcar a própria presença, e só antes da aula começar.
+      // Depois do horário, só o professor tira da lista.
       allow update: if ehProfessor() || (
         ehAluno()
         && resource.data.alunoId == request.auth.uid
         && request.resource.data.status == 'cancelada'
         && soAltera(['status', 'atualizadoEm'])
+        && aulaNaoComecou(resource.data.aulaId)
       );
 
       allow delete: if ehProfessor();

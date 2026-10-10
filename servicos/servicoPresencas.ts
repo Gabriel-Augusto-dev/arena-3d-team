@@ -1,6 +1,7 @@
 import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Pagamento, Presenca, Usuario } from "@/tipos";
 import { aulaDaSemana, avaliarPresenca } from "./regras/regrasAula";
+import { aulaJaComecou } from "@/lib/utilitarios/datas";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 
 /**
@@ -124,6 +125,10 @@ export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<Presen
 
 /** Desmarca a presença (antes da aula começar). Cancela a cobrança se ainda não foi paga */
 export async function desmarcarPresenca(presenca: Presenca): Promise<Presenca> {
+  const aula = await banco.obter("aulas", presenca.aulaId);
+  if (aula && aulaJaComecou(aula.data, aula.horarioInicio)) {
+    throw new Error("A aula já começou. Para desmarcar, fale com o professor");
+  }
   const local: Presenca = { ...presenca, status: "cancelada", atualizadoEm: new Date().toISOString() };
   const operacoes: OperacaoLote[] = [
     { tipo: "atualizar", colecao: "presencas", id: presenca.id, dados: { status: "cancelada" } },

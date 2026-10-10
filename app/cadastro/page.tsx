@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { destinoAposLogin, useAutenticacao } from "@/contextos/ContextoAutenticacao";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { MolduraAcesso } from "@/componentes/navegacao/MolduraAcesso";
-import { Campo, CampoSenha } from "@/componentes/interface/Campos";
+import { Campo, CampoData, CampoSenha } from "@/componentes/interface/Campos";
 import { useColecao } from "@/ganchos/useColecao";
 import { useConfiguracoes } from "@/ganchos/useConfiguracoes";
 import { onde } from "@/lib/banco";
@@ -104,12 +104,11 @@ export default function PaginaCadastro() {
             onChange={(e) => alterar("cpf", e.target.value)}
             erro={erros.cpf}
           />
-          <Campo
+          <CampoData
             rotulo="Nascimento"
-            type="date"
             max={hojeISO()}
-            value={dados.dataNascimento}
-            onChange={(e) => alterar("dataNascimento", e.target.value)}
+            valor={dados.dataNascimento}
+            aoMudar={(iso) => alterar("dataNascimento", iso)}
             erro={erros.dataNascimento}
           />
         </div>
