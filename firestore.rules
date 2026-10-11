@@ -7,7 +7,8 @@ rules_version = '2';
 // Perfis (campo `perfil` do documento usuarios/{uid}):
 //   professor → administrador: pode tudo, é o único que confirma pagamentos
 //   auxiliar  → professor auxiliar: LÊ alunos, aulas, presenças e pagamentos; cria e
-//               edita só as PRÓPRIAS turmas (e as aulas delas); não mexe em dinheiro
+//               edita só as PRÓPRIAS turmas (e as aulas delas); tira aluno da lista
+//               de presença só nas aulas dele; não confirma pagamentos
 //   aluno     → só os próprios dados
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -39,6 +40,14 @@ service cloud.firestore {
     // A turma é do auxiliar logado?
     function turmaDoAuxiliar(turmaId) {
       return get(/databases/$(database)/documents/turmas/$(turmaId)).data.get('responsavelId', null) == request.auth.uid;
+    }
+
+    // A aula é do auxiliar logado? Vale o responsável gravado na aula;
+    // aulas antigas sem esse campo seguem o responsável da turma
+    function aulaDoAuxiliar(aulaId) {
+      let aula = get(/databases/$(database)/documents/aulas/$(aulaId)).data;
+      return aula.get('responsavelId', null) == request.auth.uid
+        || (!('responsavelId' in aula) && turmaDoAuxiliar(aula.turmaId));
     }
 
     // Aluno com a conta ativa (as gravações do aluno passam por aqui)
@@ -185,13 +194,20 @@ service cloud.firestore {
       }
 
       // Aluno só pode desmarcar a própria presença, e só antes da aula começar.
-      // Depois do horário, só o professor tira da lista.
+      // Depois do horário, só a equipe tira da lista: o professor em qualquer aula,
+      // o auxiliar só nas aulas dele (e só cancela, não muda mais nada).
       allow update: if ehProfessor() || (
         ehAluno()
         && resource.data.alunoId == request.auth.uid
         && request.resource.data.status == 'cancelada'
         && soAltera(['status', 'atualizadoEm'])
         && aulaNaoComecou(resource.data.aulaId)
+      ) || (
+        ehAuxiliar()
+        && resource.data.status == 'confirmada'
+        && request.resource.data.status == 'cancelada'
+        && soAltera(['status', 'atualizadoEm'])
+        && aulaDoAuxiliar(resource.data.aulaId)
       );
 
       allow delete: if ehProfessor();
@@ -246,6 +262,16 @@ service cloud.firestore {
             && soAltera(['status', 'motivoRecusa', 'atualizadoEm'])
             && getAfter(caminho('presencas', resource.data.presencaId)).data.status == 'cancelada')
         )
+      ) || (
+        // Auxiliar tirou o aluno da lista de uma aula dele: cancela o Day Use não confirmado
+        // (só junto com a presença cancelada, no mesmo lote)
+        ehAuxiliar()
+        && resource.data.tipo == 'day_use'
+        && resource.data.status in ['pendente', 'em_analise']
+        && request.resource.data.status == 'cancelado'
+        && soAltera(['status', 'motivoRecusa', 'atualizadoEm'])
+        && getAfter(caminho('presencas', resource.data.presencaId)).data.status == 'cancelada'
+        && aulaDoAuxiliar(resource.data.aulaId)
       );
 
       allow delete: if false;

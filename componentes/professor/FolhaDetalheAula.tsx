@@ -24,14 +24,16 @@ import {
   tipoPresencaPeloProfessor,
 } from "@/servicos/regras/regrasAula";
 import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
+import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { adicionarPresenca, cancelarAula, reativarAula, removerPresenca, type PagamentoNaHora } from "@/servicos/servicoAulas";
 import { CompartilharLinkAula } from "./CompartilharLinkAula";
 
 /** Lista de presença da aula, com a situação de pagamento de cada Day Use */
 export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFechar(): void }) {
-  // O professor auxiliar só acompanha: não cancela aula, não tira aluno e não confirma pagamento
+  // O professor auxiliar não cancela aula nem confirma pagamento; tira aluno da lista só nas aulas dele
   const { ehAdministrador } = useAutenticacao();
+  const eu = useUsuarioLogado();
   const { aulas, turmaPorId, presencas, pagamentos, alunos } = useDadosProfessor();
   const avisos = useAvisos();
   const [cancelando, setCancelando] = useState(false);
@@ -47,6 +49,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
   const lista = presencasDaAula(aula, presencas);
   const faltamMarcar = mensalistasSemPresenca(aula, presencas, alunos);
   const cancelada = aula.status === "cancelada";
+  const podeRemover = !cancelada && (ehAdministrador || responsavelDaAula(aula, turmaPorId) === eu.id);
   const jaComecou = aulaJaComecou(aula.data, aula.horarioInicio);
   const diaExtra = ehDiaExtra(aula);
   // Sem custo é a presença gravada como mensalista (no dia extra todos pagam diária)
@@ -154,7 +157,9 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
 
         {!ehAdministrador && (
           <p className="rounded-2xl bg-marinho-50 px-4 py-3 text-sm text-marinho-800">
-            Você acompanha a lista e quem já pagou. Quem confirma os pagamentos é o professor responsável.
+            {podeRemover
+              ? "Você pode tirar aluno da lista desta aula. Quem confirma os pagamentos é o professor responsável."
+              : "Você acompanha a lista e quem já pagou. Quem confirma os pagamentos é o professor responsável."}
           </p>
         )}
 
@@ -222,7 +227,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
                         pagamento={pagamentoDe(p)}
                         ocupado={ocupado}
                         aoRemover={
-                          ehAdministrador && !cancelada
+                          podeRemover
                             ? () => executar(p.id, () => removerPresenca(p), `${p.alunoNome} removido da lista`)
                             : undefined
                         }

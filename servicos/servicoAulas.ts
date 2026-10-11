@@ -145,7 +145,10 @@ export async function reativarAula(aula: Aula) {
   await banco.atualizar("aulas", aula.id, { status: "agendada", motivoCancelamento: "" });
 }
 
-/** Professor tira um aluno da lista de presença (cancela a cobrança se não paga) */
+/**
+ * Professor (qualquer aula) ou auxiliar (só nas aulas dele) tira um aluno da lista.
+ * Cancela o Day Use ainda não confirmado; o que já foi confirmado continua pago.
+ */
 export async function removerPresenca(presenca: Presenca) {
   const operacoes: OperacaoLote[] = [
     { tipo: "atualizar", colecao: "presencas", id: presenca.id, dados: { status: "cancelada" } },
