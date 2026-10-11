@@ -47,13 +47,14 @@ import {
   primeiroNome,
 } from "@/lib/utilitarios/formatadores";
 import {
+  calcularNovoCiclo,
   calcularSituacaoMensalidade,
   matriculasDoAluno,
   situacaoDaValidade,
 } from "@/servicos/regras/regrasMensalidade";
 import { ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
 import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
-import { alternarAlunoAtivo, definirAssociado, reenviarAcesso } from "@/servicos/servicoAlunos";
+import { alternarAlunoAtivo, definirAssociado, definirUltimoPagamento, reenviarAcesso } from "@/servicos/servicoAlunos";
 import type { Usuario } from "@/tipos";
 import type { ResultadoNovaConta } from "@/lib/autenticacao";
 import { confirmarPagamento } from "@/servicos/servicoPagamentos";
@@ -220,6 +221,13 @@ export default function DetalheAluno() {
                     {m.turma.responsavelNome && <LinhaInfo rotulo="Professor" valor={m.turma.responsavelNome} />}
                     <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, m.turma, configuracoes))} />
                     <LinhaInfo rotulo="Válida até" valor={formatarData(m.validade)} />
+                    {ehAdministrador && (
+                      <UltimoPagamento
+                        alunoId={aluno.id}
+                        turmaId={m.turmaId}
+                        diasCiclo={configuracoes.diasCicloMensalidade}
+                      />
+                    )}
                   </div>
                 ))
               ) : (
@@ -427,5 +435,45 @@ function InterruptorAssociado({ aluno }: { aluno: Usuario }) {
         className={`absolute top-1 size-5 rounded-full bg-white shadow transition-all ${aluno.associado ? "left-6" : "left-1"}`}
       />
     </button>
+  );
+}
+
+/**
+ * Aluno que já pagava antes do app: o professor informa o dia do último pagamento
+ * e o sistema calcula o vencimento (ciclo dos Ajustes). A presença libera na hora.
+ */
+function UltimoPagamento({ alunoId, turmaId, diasCiclo }: { alunoId: string; turmaId: string; diasCiclo: number }) {
+  const avisos = useAvisos();
+  const [data, setData] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const hoje = hojeISO();
+
+  const salvar = async () => {
+    setSalvando(true);
+    try {
+      const validade = await definirUltimoPagamento(alunoId, turmaId, data, diasCiclo);
+      avisos.sucesso(`Mensalidade válida até ${formatarData(validade)}`);
+      setData("");
+    } catch (erro) {
+      avisos.erro(erro);
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pb-2 pt-1">
+      <CampoData rotulo="Último pagamento" valor={data} aoMudar={setData} max={hoje} autoComplete="off" />
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[13px] text-suave">
+          {data
+            ? `Vai valer até ${formatarData(calcularNovoCiclo(null, diasCiclo, data).cicloFim)}`
+            : `Pagou antes do app? Informe o dia: vale ${diasCiclo} dias a partir dele.`}
+        </p>
+        <Botao variante="secundario" tamanho="pequeno" disabled={!data} carregando={salvando} onClick={salvar}>
+          Salvar
+        </Botao>
+      </div>
+    </div>
   );
 }
