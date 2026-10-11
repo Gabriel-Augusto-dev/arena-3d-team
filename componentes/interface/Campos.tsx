@@ -3,8 +3,10 @@
 import { useId, useRef, useState } from "react";
 import { CalendarDays, Clock, Eye, EyeOff, type LucideIcon } from "lucide-react";
 
+// Letra de 16px no celular: abaixo disso o Safari do iPhone dá zoom sozinho ao tocar no
+// campo e não volta ao tamanho normal (a tela fica "desenquadrada"). No computador, 15px.
 const estiloEntrada =
-  "w-full rounded-xl bg-white px-3.5 text-[15px] text-tinta ring-1 ring-inset ring-linha placeholder:text-suave/60 transition focus:outline-none focus:ring-2 focus:ring-marinho-500 disabled:bg-fundo disabled:text-suave aria-[invalid=true]:ring-erro";
+  "w-full rounded-xl bg-white px-3.5 text-base sm:text-[15px] text-tinta ring-1 ring-inset ring-linha placeholder:text-suave/60 transition focus:outline-none focus:ring-2 focus:ring-marinho-500 disabled:bg-fundo disabled:text-suave aria-[invalid=true]:ring-erro";
 
 interface Moldura {
   rotulo?: string;

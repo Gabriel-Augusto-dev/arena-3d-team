@@ -181,7 +181,7 @@ export default function FinanceiroProfessor() {
                   value={mes}
                   onChange={(e) => setMes(e.target.value)}
                   aria-label="Mês"
-                  className="h-12 rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
+                  className="h-12 rounded-xl bg-white px-3 text-base font-semibold sm:text-sm ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
                 >
                   {meses.map((m) => (
                     <option key={m} value={m}>

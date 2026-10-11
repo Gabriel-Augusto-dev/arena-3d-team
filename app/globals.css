@@ -96,6 +96,9 @@ html {
 }
 
 body {
+  /* Nada passa da largura da tela: impede a página de deslizar para o lado no celular
+     (clip, e não hidden, para a barra superior continuar fixa ao rolar) */
+  overflow-x: clip;
   background: var(--color-fundo);
   color: var(--color-tinta);
   font-family: var(--font-sans);

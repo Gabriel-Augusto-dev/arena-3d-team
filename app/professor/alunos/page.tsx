@@ -121,7 +121,7 @@ export default function AlunosProfessor() {
             value={turmaFiltro}
             onChange={(e) => setTurmaFiltro(e.target.value)}
             aria-label="Filtrar por turma"
-            className="h-12 max-w-[42%] rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
+            className="h-12 max-w-[42%] rounded-xl bg-white px-3 text-base font-semibold sm:text-sm ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
           >
             <option value="">Todas as turmas</option>
             {turmas.map((t) => (
@@ -136,7 +136,7 @@ export default function AlunosProfessor() {
             value={professorFiltro}
             onChange={(e) => setProfessorFiltro(e.target.value)}
             aria-label="Filtrar por professor"
-            className="h-12 rounded-xl bg-white px-3 text-sm font-semibold ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
+            className="h-12 rounded-xl bg-white px-3 text-base font-semibold sm:text-sm ring-1 ring-inset ring-linha focus:outline-none focus:ring-2 focus:ring-marinho-500"
           >
             <option value="">Todos os professores</option>
             <option value="eu">Meus alunos</option>
