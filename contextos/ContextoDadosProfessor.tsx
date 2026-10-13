@@ -157,6 +157,42 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
     usuario.nome,
   ]);
 
+  // Regra: presença cancelada → Day Use dela cancelado. Corrige sozinho registros
+  // gravados antes dessa regra (ex.: Day Use confirmado de presença já desmarcada).
+  const pagamentosCorrigindo = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ehAdministrador || presencas.carregando || pagamentosRecentes.carregando || pagamentosAbertos.carregando) return;
+    const canceladas = new Map(presencas.dados.filter((p) => p.status === "cancelada").map((p) => [p.id, p]));
+    const operacoes: OperacaoLote[] = [];
+    const vistos = new Set<string>();
+    for (const pg of [...pagamentosRecentes.dados, ...pagamentosAbertos.dados]) {
+      if (vistos.has(pg.id)) continue;
+      vistos.add(pg.id);
+      if (pg.tipo !== "day_use" || !pg.presencaId || pagamentosCorrigindo.current.has(pg.id)) continue;
+      if (pg.status !== "pendente" && pg.status !== "em_analise" && pg.status !== "confirmado") continue;
+      if (!canceladas.has(pg.presencaId)) continue;
+      pagamentosCorrigindo.current.add(pg.id);
+      operacoes.push({
+        tipo: "atualizar",
+        colecao: "pagamentos",
+        id: pg.id,
+        dados: { status: "cancelado", motivoRecusa: pg.motivoRecusa || "Aula desmarcada" },
+      });
+    }
+    if (!operacoes.length) return;
+    banco
+      .lote(operacoes.slice(0, 450))
+      .catch((erro) => console.warn("[pagamentos] não deu para cancelar Day Use de presença desmarcada:", erro));
+  }, [
+    ehAdministrador,
+    presencas.dados,
+    presencas.carregando,
+    pagamentosRecentes.dados,
+    pagamentosRecentes.carregando,
+    pagamentosAbertos.dados,
+    pagamentosAbertos.carregando,
+  ]);
+
   const valor = useMemo<DadosProfessor>(() => {
     const ordenarPorNome = (a: Usuario, b: Usuario) => a.nome.localeCompare(b.nome, "pt-BR");
     const todasTurmas = mapaDeTurmas(turmas.dados);

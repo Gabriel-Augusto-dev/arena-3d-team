@@ -116,7 +116,8 @@ export async function cancelarAula(
     operacoes.push({ tipo: "atualizar", colecao: "presencas", id: p.id, dados: { status: "cancelada" } });
     if (p.pagamentoId) {
       const pagamento = await banco.obter("pagamentos", p.pagamentoId);
-      if (pagamento?.status === "pendente") {
+      // Presença cancelada = Day Use cancelado (mesmo se já confirmado: sai do recebido)
+      if (pagamento && (pagamento.status === "pendente" || pagamento.status === "em_analise" || pagamento.status === "confirmado")) {
         operacoes.push({
           tipo: "atualizar",
           colecao: "pagamentos",
