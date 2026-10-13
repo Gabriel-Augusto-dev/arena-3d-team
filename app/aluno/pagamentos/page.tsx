@@ -42,7 +42,11 @@ export default function PagamentosAluno() {
 
   const emAnalise = meusPagamentos.filter((p) => p.status === "em_analise");
   const historico = pagamentosPeriodo.dados
-    .filter((p) => (p.status === "confirmado" || p.status === "recusado") && (filtro === "todos" || p.tipo === filtro))
+    .filter(
+      (p) =>
+        (p.status === "confirmado" || p.status === "recusado" || p.status === "cancelado") &&
+        (filtro === "todos" || p.tipo === filtro),
+    )
     .sort((a, b) => (b.confirmadoEm ?? b.criadoEm).localeCompare(a.confirmadoEm ?? a.criadoEm));
   const totalPeriodo = historico.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0);
 

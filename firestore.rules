@@ -263,11 +263,11 @@ service cloud.firestore {
             && getAfter(caminho('presencas', resource.data.presencaId)).data.status == 'cancelada')
         )
       ) || (
-        // Auxiliar tirou o aluno da lista de uma aula dele: cancela o Day Use não confirmado
-        // (só junto com a presença cancelada, no mesmo lote)
+        // Auxiliar tirou o aluno da lista de uma aula dele: o Day Use daquela presença
+        // vira "cancelado" (só junto com a presença cancelada, no mesmo lote)
         ehAuxiliar()
         && resource.data.tipo == 'day_use'
-        && resource.data.status in ['pendente', 'em_analise']
+        && resource.data.status in ['pendente', 'em_analise', 'confirmado']
         && request.resource.data.status == 'cancelado'
         && soAltera(['status', 'motivoRecusa', 'atualizadoEm'])
         && getAfter(caminho('presencas', resource.data.presencaId)).data.status == 'cancelada'

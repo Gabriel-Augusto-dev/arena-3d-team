@@ -54,6 +54,14 @@ export function ItemPagamento({
           <Selo tom={rotulo.tom}>{situacao === "em_atraso" && atraso > 1 ? `${atraso} dias de atraso` : rotulo.rotulo}</Selo>
         </div>
       </div>
+      {situacao === "cancelado" && (
+        <p className="mt-2.5 flex gap-2 rounded-xl bg-fundo px-3 py-2 text-[13px] text-suave">
+          <Receipt className="mt-0.5 size-4 shrink-0" />
+          {pagamento.tipo === "day_use"
+            ? `${pagamento.motivoRecusa || "Aula desmarcada"}${pagamento.confirmadoEm ? " · não conta como recebido" : ""}`
+            : pagamento.motivoRecusa || "Cancelado"}
+        </p>
+      )}
       {pagamento.motivoRecusa && (situacao === "recusado" || situacao === "a_pagar" || situacao === "em_atraso") && (
         <p className="mt-2.5 flex gap-2 rounded-xl bg-erro-fundo px-3 py-2 text-[13px] text-erro">
           <Receipt className="mt-0.5 size-4 shrink-0" />

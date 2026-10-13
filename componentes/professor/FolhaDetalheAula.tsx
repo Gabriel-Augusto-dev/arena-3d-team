@@ -228,7 +228,14 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
                         ocupado={ocupado}
                         aoRemover={
                           podeRemover
-                            ? () => executar(p.id, () => removerPresenca(p), `${p.alunoNome} removido da lista`)
+                            ? () =>
+                                executar(
+                                  p.id,
+                                  () => removerPresenca(p),
+                                  pagamentoDe(p)?.status === "confirmado"
+                                    ? `${p.alunoNome} removido da lista. O Day Use pago ficou como cancelado`
+                                    : `${p.alunoNome} removido da lista`,
+                                )
                             : undefined
                         }
                       />

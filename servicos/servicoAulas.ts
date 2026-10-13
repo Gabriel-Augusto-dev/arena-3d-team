@@ -147,7 +147,9 @@ export async function reativarAula(aula: Aula) {
 
 /**
  * Professor (qualquer aula) ou auxiliar (só nas aulas dele) tira um aluno da lista.
- * Cancela o Day Use ainda não confirmado; o que já foi confirmado continua pago.
+ * O Day Use daquela presença passa a "cancelado", mesmo que já tivesse sido
+ * confirmado: continua no histórico com o aviso "Aula desmarcada", mas sai dos
+ * valores recebidos (presença marcada por engano não gera crédito nem cobrança).
  */
 export async function removerPresenca(presenca: Presenca) {
   const operacoes: OperacaoLote[] = [
@@ -155,12 +157,12 @@ export async function removerPresenca(presenca: Presenca) {
   ];
   if (presenca.pagamentoId) {
     const pagamento = await banco.obter("pagamentos", presenca.pagamentoId);
-    if (pagamento && (pagamento.status === "pendente" || pagamento.status === "em_analise")) {
+    if (pagamento && (pagamento.status === "pendente" || pagamento.status === "em_analise" || pagamento.status === "confirmado")) {
       operacoes.push({
         tipo: "atualizar",
         colecao: "pagamentos",
         id: presenca.pagamentoId,
-        dados: { status: "cancelado", motivoRecusa: "Presença removida pelo professor" },
+        dados: { status: "cancelado", motivoRecusa: "Aula desmarcada" },
       });
     }
   }

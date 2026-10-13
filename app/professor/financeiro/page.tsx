@@ -59,7 +59,8 @@ export default function FinanceiroProfessor() {
   const historico = doMes.dados
     .filter(
       (p) =>
-        (p.status === "confirmado" || p.status === "recusado") &&
+        // Cancelado aqui = Day Use já confirmado cuja aula foi desmarcada (aparece, mas não soma)
+        (p.status === "confirmado" || p.status === "recusado" || p.status === "cancelado") &&
         (tipo === "todos" || p.tipo === tipo) &&
         (!busca.trim() || contemTexto(p.alunoNome, busca)),
     )
