@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { CartaoCreditos } from "@/componentes/pagamentos/CartaoCreditos";
 import { CalendarDays, Lock } from "lucide-react";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { useAvisos } from "@/contextos/ContextoAvisos";
@@ -86,6 +87,8 @@ function InicioAluno() {
               </Botao>
             </div>
           )}
+
+          <CartaoCreditos />
 
           {carregando ? (
             <div className="h-[168px] animate-pulse rounded-[26px] bg-marinho-900/15" />

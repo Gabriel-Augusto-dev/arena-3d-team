@@ -28,7 +28,20 @@ export function ItemPagamento({
     descricao = `Ciclo ${formatarData(pagamento.cicloInicio)} a ${formatarData(pagamento.cicloFim)}`;
   } else if (pagamento.tipo === "day_use" && pagamento.vencimento) {
     descricao = `Aula de ${formatarDataRelativa(pagamento.vencimento).toLowerCase()}`;
+    if (pagamento.forma === "credito" && pagamento.status === "confirmado") descricao += " · pago com crédito";
   }
+
+  // Aula cancelada: o que aconteceu com o dinheiro
+  const avisoAulaCancelada =
+    situacao === "reembolsado"
+      ? "Aula cancelada · valor devolvido (não conta como recebido)"
+      : situacao === "em_credito"
+        ? `Aula cancelada · virou 1 aula de crédito, vale até ${formatarData(pagamento.creditoValidade ?? null)}`
+        : situacao === "credito_usado"
+          ? "Aula cancelada · crédito já usado em outra aula"
+          : situacao === "credito_expirado"
+            ? `Aula cancelada · o crédito venceu em ${formatarData(pagamento.creditoValidade ?? null)}`
+            : null;
 
   return (
     <div className={`rounded-2xl bg-white p-3.5 ring-1 ${situacao === "em_atraso" ? "ring-erro/40" : "ring-linha/70"}`}>
@@ -54,6 +67,12 @@ export function ItemPagamento({
           <Selo tom={rotulo.tom}>{situacao === "em_atraso" && atraso > 1 ? `${atraso} dias de atraso` : rotulo.rotulo}</Selo>
         </div>
       </div>
+      {avisoAulaCancelada && (
+        <p className="mt-2.5 flex gap-2 rounded-xl bg-fundo px-3 py-2 text-[13px] text-suave">
+          <Receipt className="mt-0.5 size-4 shrink-0" />
+          {avisoAulaCancelada}
+        </p>
+      )}
       {situacao === "cancelado" && (
         <p className="mt-2.5 flex gap-2 rounded-xl bg-fundo px-3 py-2 text-[13px] text-suave">
           <Receipt className="mt-0.5 size-4 shrink-0" />

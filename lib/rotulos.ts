@@ -11,6 +11,10 @@ export const ROTULOS_SITUACAO_COBRANCA: Record<SituacaoCobranca, { rotulo: strin
   a_pagar: { rotulo: "A pagar", tom: "amarelo" },
   recusado: { rotulo: "Recusado", tom: "vermelho" },
   cancelado: { rotulo: "Cancelado", tom: "cinza" },
+  reembolsado: { rotulo: "Reembolsado", tom: "cinza" },
+  em_credito: { rotulo: "Em crédito", tom: "azul" },
+  credito_usado: { rotulo: "Crédito usado", tom: "cinza" },
+  credito_expirado: { rotulo: "Crédito vencido", tom: "cinza" },
 };
 
 export const ROTULOS_TIPO_PAGAMENTO: Record<TipoPagamento, string> = {
@@ -22,6 +26,7 @@ export const ROTULOS_FORMA_PAGAMENTO: Record<FormaPagamento, string> = {
   pix: "PIX",
   dinheiro: "Dinheiro",
   outro: "Outro",
+  credito: "Crédito",
 };
 
 export const ROTULOS_STATUS_PRESENCA: Record<StatusPresenca, { rotulo: string; tom: Tom }> = {

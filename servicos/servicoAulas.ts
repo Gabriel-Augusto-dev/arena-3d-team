@@ -2,7 +2,13 @@ import { banco, onde, type OperacaoLote } from "@/lib/banco";
 import type { Aula, Presenca, Turma, Usuario } from "@/tipos";
 import { adicionarDias, diaDaSemana, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { operacaoNotificarAluno } from "./servicoNotificacoes";
-import { ehDiaExtra, tipoPresencaPeloProfessor, TURMA_DIA_EXTRA } from "./regras/regrasAula";
+import {
+  DIAS_LIMITE_CANCELAR_AULA,
+  ehDiaExtra,
+  podeCancelarAula,
+  tipoPresencaPeloProfessor,
+  TURMA_DIA_EXTRA,
+} from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { ehMensalistaDaTurma } from "./regras/regrasMensalidade";
 
@@ -92,8 +98,10 @@ export async function criarDiaExtra(
 }
 
 /**
- * Cancela a aula, desmarca as presenças, cancela cobranças de Day Use
- * ainda não pagas e avisa quem tinha presença + os mensalistas da turma.
+ * Cancela a aula (até 7 dias depois dela), desmarca as presenças, cancela os
+ * Day Use ainda não pagos e avisa quem tinha presença + os mensalistas da turma.
+ * Day Use pago (ou com PIX avisado) NÃO é cancelado aqui: fica esperando o
+ * professor decidir, aluno por aluno, entre reembolsar ou virar crédito.
  */
 export async function cancelarAula(
   aula: Aula,
@@ -102,6 +110,12 @@ export async function cancelarAula(
   presencas: Presenca[],
   alunos: Usuario[],
 ) {
+  const aulaAtual = await banco.obter("aulas", aula.id);
+  if (!aulaAtual) throw new Error("Esta aula não existe mais");
+  if (aulaAtual.status === "cancelada") throw new Error("Esta aula já foi cancelada");
+  if (!podeCancelarAula(aulaAtual)) {
+    throw new Error(`Só dá para cancelar aulas de até ${DIAS_LIMITE_CANCELAR_AULA} dias atrás`);
+  }
   const quando = `${formatarDataRelativa(aula.data).toLowerCase()} às ${aula.horarioInicio}`;
   const nomeTurma = turma?.nome ?? (ehDiaExtra(aula) ? "Dia extra" : "aula");
   const ativas = presencas.filter((p) => p.aulaId === aula.id && p.status === "confirmada");
@@ -116,8 +130,8 @@ export async function cancelarAula(
     operacoes.push({ tipo: "atualizar", colecao: "presencas", id: p.id, dados: { status: "cancelada" } });
     if (p.pagamentoId) {
       const pagamento = await banco.obter("pagamentos", p.pagamentoId);
-      // Presença cancelada = Day Use cancelado (mesmo se já confirmado: sai do recebido)
-      if (pagamento && (pagamento.status === "pendente" || pagamento.status === "em_analise" || pagamento.status === "confirmado")) {
+      // Só o que não foi pago é cancelado direto. Pago ou PIX avisado: o professor decide
+      if (pagamento?.status === "pendente") {
         operacoes.push({
           tipo: "atualizar",
           colecao: "pagamentos",
@@ -151,6 +165,7 @@ export async function reativarAula(aula: Aula) {
  * O Day Use daquela presença passa a "cancelado", mesmo que já tivesse sido
  * confirmado: continua no histórico com o aviso "Aula desmarcada", mas sai dos
  * valores recebidos (presença marcada por engano não gera crédito nem cobrança).
+ * Se tinha sido pago com crédito, o crédito volta para o aluno.
  */
 export async function removerPresenca(presenca: Presenca) {
   const operacoes: OperacaoLote[] = [
@@ -159,12 +174,21 @@ export async function removerPresenca(presenca: Presenca) {
   if (presenca.pagamentoId) {
     const pagamento = await banco.obter("pagamentos", presenca.pagamentoId);
     if (pagamento && (pagamento.status === "pendente" || pagamento.status === "em_analise" || pagamento.status === "confirmado")) {
+      const comCredito = pagamento.forma === "credito" && !!pagamento.creditoOrigemId;
       operacoes.push({
         tipo: "atualizar",
         colecao: "pagamentos",
         id: presenca.pagamentoId,
-        dados: { status: "cancelado", motivoRecusa: "Aula desmarcada" },
+        dados: { status: "cancelado", motivoRecusa: comCredito ? "Aula desmarcada · crédito devolvido" : "Aula desmarcada" },
       });
+      if (comCredito) {
+        operacoes.push({
+          tipo: "atualizar",
+          colecao: "pagamentos",
+          id: pagamento.creditoOrigemId!,
+          dados: { creditoUsadoPor: null },
+        });
+      }
     }
   }
   await banco.lote(operacoes);

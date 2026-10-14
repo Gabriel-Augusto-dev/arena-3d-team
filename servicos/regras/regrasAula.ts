@@ -90,6 +90,13 @@ export type SituacaoPresenca =
 /** Até quando dá para marcar presença: até a aula terminar */
 export const aulaEncerrada = (aula: Aula) => aulaJaComecou(aula.data, aula.horarioFim);
 
+/** Até quantos dias depois da aula o professor ainda pode cancelá-la */
+export const DIAS_LIMITE_CANCELAR_AULA = 7;
+
+/** Aula agendada de hoje, do futuro ou que aconteceu há no máximo 7 dias */
+export const podeCancelarAula = (aula: Aula, hoje: string = hojeISO()) =>
+  aula.status === "agendada" && aula.data >= adicionarDias(hoje, -DIAS_LIMITE_CANCELAR_AULA);
+
 export function avaliarPresenca(
   aula: Aula,
   aluno: Usuario,
@@ -104,7 +111,9 @@ export function avaliarPresenca(
   if (minha) {
     // Desmarcar só antes da aula começar; Day Use já pago não desmarca pelo app
     const pagamento = minha.pagamentoId ? meusPagamentos.find((p) => p.id === minha.pagamentoId) : undefined;
-    const pago = !!pagamento && pagamento.status !== "pendente" && pagamento.status !== "cancelado";
+    // Pago com crédito pode desmarcar antes da aula: o crédito volta para o aluno
+    const pago =
+      !!pagamento && pagamento.status !== "pendente" && pagamento.status !== "cancelado" && pagamento.forma !== "credito";
     return {
       tipo: "confirmada",
       presenca: minha,

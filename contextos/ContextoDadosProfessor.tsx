@@ -157,11 +157,21 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
     usuario.nome,
   ]);
 
-  // Regra: presença cancelada → Day Use dela cancelado. Corrige sozinho registros
+  // Regra: presença desmarcada → Day Use dela cancelado. Corrige sozinho registros
   // gravados antes dessa regra (ex.: Day Use confirmado de presença já desmarcada).
+  // Aula CANCELADA é diferente: o Day Use pago (ou com PIX avisado) espera o professor
+  // decidir entre reembolso e crédito, então aqui só o "a pagar" é cancelado.
   const pagamentosCorrigindo = useRef(new Set<string>());
   useEffect(() => {
-    if (!ehAdministrador || presencas.carregando || pagamentosRecentes.carregando || pagamentosAbertos.carregando) return;
+    if (
+      !ehAdministrador ||
+      presencas.carregando ||
+      aulas.carregando ||
+      pagamentosRecentes.carregando ||
+      pagamentosAbertos.carregando
+    )
+      return;
+    const statusAula = new Map(aulas.dados.map((a) => [a.id, a.status]));
     const canceladas = new Map(presencas.dados.filter((p) => p.status === "cancelada").map((p) => [p.id, p]));
     const operacoes: OperacaoLote[] = [];
     const vistos = new Set<string>();
@@ -170,7 +180,12 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
       vistos.add(pg.id);
       if (pg.tipo !== "day_use" || !pg.presencaId || pagamentosCorrigindo.current.has(pg.id)) continue;
       if (pg.status !== "pendente" && pg.status !== "em_analise" && pg.status !== "confirmado") continue;
+      // Pago com crédito: quem desmarca já devolve o crédito; não mexer aqui
+      if (pg.forma === "credito") continue;
       if (!canceladas.has(pg.presencaId)) continue;
+      // Pago ou PIX avisado só é cancelado se a aula for conhecida e NÃO estiver cancelada
+      const aulaDoPagamento = pg.aulaId ? statusAula.get(pg.aulaId) : undefined;
+      if (pg.status !== "pendente" && (!aulaDoPagamento || aulaDoPagamento === "cancelada")) continue;
       pagamentosCorrigindo.current.add(pg.id);
       operacoes.push({
         tipo: "atualizar",
@@ -187,6 +202,8 @@ export function ProvedorDadosProfessor({ children }: { children: React.ReactNode
     ehAdministrador,
     presencas.dados,
     presencas.carregando,
+    aulas.dados,
+    aulas.carregando,
     pagamentosRecentes.dados,
     pagamentosRecentes.carregando,
     pagamentosAbertos.dados,

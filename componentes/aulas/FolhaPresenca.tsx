@@ -9,11 +9,11 @@ import { CarimboEnviado } from "@/componentes/pagamentos/CarimboEnviado";
 import { FolhaPagarCobrancas } from "@/componentes/pagamentos/FolhaPagarCobrancas";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
-import { aulaJaComecou, formatarDataExtenso } from "@/lib/utilitarios/datas";
+import { aulaJaComecou, formatarData, formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { descreverQuadra, nomeDoProfessor, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
-import { situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
-import { desmarcarPresenca, marcarPresenca } from "@/servicos/servicoPresencas";
+import { creditosDisponiveis, situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
+import { desmarcarPresenca, marcarPresenca, usarCreditoNaAula } from "@/servicos/servicoPresencas";
 import type { Pagamento } from "@/tipos";
 
 type Etapa = "detalhes" | "day_use_marcado";
@@ -54,6 +54,20 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
           avisos.sucesso(`Presença marcada: ${turma?.nome ?? "aula"} às ${aula.horarioInicio}`);
           aoFechar();
         }
+      },
+    );
+
+  // Crédito de aula cancelada: usado sozinho no lugar de pagar o Day Use
+  const credito = creditosDisponiveis(meusPagamentos)[0];
+  const marcarComCredito = () =>
+    executar(
+      async () => {
+        const { presenca, cobranca } = await usarCreditoNaAula(aula);
+        registrarLocal({ presencas: [presenca], pagamentos: cobranca ? [cobranca] : [] });
+      },
+      () => {
+        avisos.sucesso(`Presença marcada com seu crédito: ${turma?.nome ?? "aula"} às ${aula.horarioInicio}`);
+        aoFechar();
       },
     );
 
@@ -174,15 +188,27 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
               {situacao.motivo === "outra_turma" && (
                 <p className="text-sm text-suave">Esta aula não é da sua turma, então entra como Day Use.</p>
               )}
-              <Opcao
-                icone={Ticket}
-                titulo={situacao.motivo === "dia_extra" ? "Diária" : "Day Use"}
-                preco={formatarMoeda(valor)}
-                descricao="Marque presença agora e pague quando quiser até a meia-noite do dia da aula."
-                aoEscolher={marcar}
-                carregando={enviando}
-                destaque
-              />
+              {credito ? (
+                <Opcao
+                  icone={Ticket}
+                  titulo="Usar meu crédito"
+                  preco="1 aula"
+                  descricao={`Crédito de aula cancelada, vale até ${formatarData(credito.creditoValidade ?? null)}. A presença já entra paga.`}
+                  aoEscolher={marcarComCredito}
+                  carregando={enviando}
+                  destaque
+                />
+              ) : (
+                <Opcao
+                  icone={Ticket}
+                  titulo={situacao.motivo === "dia_extra" ? "Diária" : "Day Use"}
+                  preco={formatarMoeda(valor)}
+                  descricao="Marque presença agora e pague quando quiser até a meia-noite do dia da aula."
+                  aoEscolher={marcar}
+                  carregando={enviando}
+                  destaque
+                />
+              )}
             </div>
           )}
 
@@ -281,7 +307,12 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
 
 function StatusCobranca({ cobranca, aoPagar }: { cobranca: Pagamento; aoPagar(): void }) {
   const s = situacaoCobranca(cobranca);
-  if (s === "pago") return <p className="text-sm font-semibold text-ok">Day Use pago. Obrigado!</p>;
+  if (s === "pago")
+    return (
+      <p className="text-sm font-semibold text-ok">
+        {cobranca.forma === "credito" ? "Day Use pago com seu crédito." : "Day Use pago. Obrigado!"}
+      </p>
+    );
   if (s === "em_analise")
     return <p className="text-sm text-suave">PIX do Day Use enviado. Aguardando o professor conferir.</p>;
   return (

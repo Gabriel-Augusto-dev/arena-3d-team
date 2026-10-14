@@ -2,7 +2,21 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Banknote, CalendarX, Check, Hourglass, Link2, QrCode, RotateCcw, Search, UserMinus, UserPlus } from "lucide-react";
+import {
+  Banknote,
+  CalendarX,
+  Check,
+  Hourglass,
+  Link2,
+  QrCode,
+  RotateCcw,
+  Search,
+  Ticket,
+  Undo2,
+  UserMinus,
+  UserPlus,
+  X,
+} from "lucide-react";
 import type { Aula, Pagamento, Presenca, Usuario } from "@/tipos";
 import { useAutenticacao, useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosProfessor } from "@/contextos/ContextoDadosProfessor";
@@ -19,13 +33,25 @@ import {
   descreverQuadra,
   ehDiaExtra,
   mensalistasSemPresenca,
+  podeCancelarAula,
   presencasDaAula,
   ROTULOS_TIPO_PRESENCA,
   tipoPresencaPeloProfessor,
 } from "@/servicos/regras/regrasAula";
 import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
 import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
-import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
+import {
+  aguardaDecisaoDaAulaCancelada,
+  DIAS_VALIDADE_CREDITO,
+  podeReembolsarOuCreditar,
+  situacaoCobranca,
+} from "@/servicos/regras/regrasPagamento";
+import {
+  cancelarPixNaoRecebido,
+  confirmarPagamento,
+  converterEmCredito,
+  reembolsarDayUse,
+} from "@/servicos/servicoPagamentos";
 import { adicionarPresenca, cancelarAula, reativarAula, removerPresenca, type PagamentoNaHora } from "@/servicos/servicoAulas";
 import { CompartilharLinkAula } from "./CompartilharLinkAula";
 
@@ -55,6 +81,10 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
   // Sem custo é a presença gravada como mensalista (no dia extra todos pagam diária)
   const ehMensalistaSemCusto = (p: Presenca) => !diaExtra && p.tipo === "mensalista";
   const pagamentoDe = (p: Presenca) => (p.pagamentoId ? pagamentos.find((x) => x.id === p.pagamentoId) : undefined);
+  // Depois de reembolsar ou dar crédito, a aula não pode voltar (o aluno já foi compensado)
+  const jaCompensou = pagamentos.some(
+    (p) => p.aulaId === aula.id && (p.status === "reembolsado" || p.status === "credito"),
+  );
 
   // Contagem das 4 situações: mensalista, a pagar, pago (aguardando conferência) e confirmado
   const contagem = { mensalista: 0, aPagar: 0, pago: 0, confirmado: 0 };
@@ -105,6 +135,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
       descricao={`${formatarDataExtenso(aula.data)}, ${aula.horarioInicio} às ${aula.horarioFim}${turma?.local ? ` · ${descreverQuadra(turma.local)}` : ""}`}
       rodape={
         !ehAdministrador ? undefined : cancelada ? (
+          !jaCompensou && (
           <Botao
             variante="secundario"
             tamanho="grande"
@@ -115,6 +146,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
           >
             Reativar aula
           </Botao>
+          )
         ) : cancelando ? (
           <div className="flex gap-2">
             <Botao variante="secundario" tamanho="grande" onClick={() => setCancelando(false)}>
@@ -140,7 +172,7 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
             </Botao>
           </div>
         ) : (
-          !jaComecou && (
+          podeCancelarAula(aula) && (
             <Botao variante="perigo" tamanho="grande" larguraTotal icone={CalendarX} onClick={() => setCancelando(true)}>
               Cancelar aula
             </Botao>
@@ -185,8 +217,19 @@ export function FolhaDetalheAula({ aulaId, aoFechar }: { aulaId: string; aoFecha
             placeholder="Ex.: previsão de chuva forte"
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
-            dica="Quem marcou presença e os mensalistas da turma serão avisados. Day Use não pagos são cancelados."
+            dica={`${jaComecou ? "Esta aula já aconteceu. " : ""}Quem marcou presença e os mensalistas da turma serão avisados. Day Use não pagos são cancelados; os já pagos você resolve em seguida, aluno por aluno: reembolso ou crédito.`}
             autoFocus
+          />
+        ) : cancelada ? (
+          <PagamentosDaAulaCancelada
+            pagamentos={pagamentos.filter(
+              (p) =>
+                p.aulaId === aula.id &&
+                p.tipo === "day_use" &&
+                (aguardaDecisaoDaAulaCancelada(p) || p.status === "reembolsado" || p.status === "credito"),
+            )}
+            podeResolver={ehAdministrador}
+            professorId={eu.id}
           />
         ) : (
           <>
@@ -308,6 +351,7 @@ function LinhaPresenca({
           <p className="text-xs text-suave">
             {ehMensalista ? "Mensalista" : ROTULOS_TIPO_PRESENCA[p.tipo]}
             {!ehMensalista && pagamento ? ` · ${formatarMoeda(pagamento.valor)}` : ""}
+            {!ehMensalista && pagamento?.forma === "credito" ? " · pago com crédito" : ""}
           </p>
         </div>
         {ehMensalista ? (
@@ -580,5 +624,144 @@ function FolhaAdicionarAluno({
         )}
       </div>
     </Folha>
+  );
+}
+
+/**
+ * Aula cancelada: Day Use já pago (ou com PIX avisado) de cada aluno.
+ * O professor resolve um por um: reembolsar ou virar 1 aula de crédito.
+ */
+function PagamentosDaAulaCancelada({
+  pagamentos,
+  podeResolver,
+  professorId,
+}: {
+  pagamentos: Pagamento[];
+  podeResolver: boolean;
+  professorId: string;
+}) {
+  const avisos = useAvisos();
+  const [ocupado, setOcupado] = useState<string | null>(null);
+  const pendentes = pagamentos.filter(aguardaDecisaoDaAulaCancelada);
+  const ordenados = [...pagamentos].sort(
+    (a, b) =>
+      Number(aguardaDecisaoDaAulaCancelada(b)) - Number(aguardaDecisaoDaAulaCancelada(a)) ||
+      a.alunoNome.localeCompare(b.alunoNome, "pt-BR"),
+  );
+
+  const executar = async (chave: string, acao: () => Promise<unknown>, mensagem: string) => {
+    setOcupado(chave);
+    try {
+      await acao();
+      avisos.sucesso(mensagem);
+    } catch (erro) {
+      avisos.erro(erro);
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  if (!pagamentos.length) {
+    return (
+      <p className="rounded-2xl bg-white/60 px-4 py-3 text-sm text-suave ring-1 ring-linha/60">
+        Nenhum Day Use pago nesta aula. Nada para resolver.
+      </p>
+    );
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="font-titulo text-lg font-bold">Day Use pagos</h3>
+      <p className="-mt-1 text-sm text-suave">
+        {pendentes.length
+          ? `${pendentes.length === 1 ? "1 aluno espera" : `${pendentes.length} alunos esperam`} você decidir: devolver o dinheiro ou virar 1 aula de crédito (vale ${DIAS_VALIDADE_CREDITO} dias).`
+          : "Tudo resolvido."}
+      </p>
+      <ul className="flex flex-col gap-1.5">
+        {ordenados.map((p) => {
+          const rotulo = ROTULOS_SITUACAO_COBRANCA[situacaoCobranca(p)];
+          const primeiro = primeiroNome(p.alunoNome);
+          return (
+            <li key={p.id} className="flex flex-col gap-2.5 rounded-2xl bg-white p-3 ring-1 ring-linha/60">
+              <div className="flex items-center gap-3">
+                <Avatar nome={p.alunoNome} tamanho="pequeno" />
+                <div className="min-w-0 flex-1">
+                  <Link href={`/professor/alunos/${p.alunoId}`} className="block truncate text-[15px] font-semibold hover:underline">
+                    {p.alunoNome}
+                  </Link>
+                  <p className="text-xs text-suave">
+                    Day Use · {formatarMoeda(p.valor)}
+                    {p.status === "em_analise" ? " · PIX avisado, falta conferir" : ""}
+                  </p>
+                </div>
+                <Selo tom={podeReembolsarOuCreditar(p) ? "verde" : rotulo.tom}>
+                  {podeReembolsarOuCreditar(p) ? "Pago" : rotulo.rotulo}
+                </Selo>
+              </div>
+              {podeResolver && podeReembolsarOuCreditar(p) && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Botao
+                    variante="secundario"
+                    tamanho="pequeno"
+                    icone={Undo2}
+                    carregando={ocupado === p.id + "reembolso"}
+                    disabled={!!ocupado}
+                    onClick={() =>
+                      executar(p.id + "reembolso", () => reembolsarDayUse(p), `Reembolso de ${primeiro} registrado`)
+                    }
+                  >
+                    Reembolsar
+                  </Botao>
+                  <Botao
+                    variante="destaque"
+                    tamanho="pequeno"
+                    icone={Ticket}
+                    carregando={ocupado === p.id + "credito"}
+                    disabled={!!ocupado}
+                    onClick={() =>
+                      executar(p.id + "credito", () => converterEmCredito(p), `${primeiro} ganhou 1 aula de crédito`)
+                    }
+                  >
+                    Virar crédito
+                  </Botao>
+                </div>
+              )}
+              {podeResolver && p.status === "em_analise" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Botao
+                    variante="secundario"
+                    tamanho="pequeno"
+                    icone={X}
+                    carregando={ocupado === p.id + "nao"}
+                    disabled={!!ocupado}
+                    onClick={() =>
+                      executar(p.id + "nao", () => cancelarPixNaoRecebido(p), `Day Use de ${primeiro} cancelado`)
+                    }
+                  >
+                    Não recebi
+                  </Botao>
+                  <Botao
+                    variante="sucesso"
+                    tamanho="pequeno"
+                    icone={Check}
+                    carregando={ocupado === p.id + "recebi"}
+                    disabled={!!ocupado}
+                    onClick={() =>
+                      executar(
+                        p.id + "recebi",
+                        () => confirmarPagamento(p, professorId),
+                        `PIX de ${primeiro} confirmado. Agora escolha: reembolso ou crédito`,
+                      )
+                    }
+                  >
+                    Recebi o PIX
+                  </Botao>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

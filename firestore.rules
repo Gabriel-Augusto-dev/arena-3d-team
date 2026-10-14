@@ -272,6 +272,16 @@ service cloud.firestore {
         && soAltera(['status', 'motivoRecusa', 'atualizadoEm'])
         && getAfter(caminho('presencas', resource.data.presencaId)).data.status == 'cancelada'
         && aulaDoAuxiliar(resource.data.aulaId)
+      ) || (
+        // Auxiliar tirou da lista (aula dele) quem tinha pago com crédito: o crédito volta
+        // para o aluno (só junto com o Day Use pago com crédito cancelado, no mesmo lote)
+        ehAuxiliar()
+        && resource.data.status == 'credito'
+        && resource.data.get('creditoUsadoPor', null) is string
+        && request.resource.data.get('creditoUsadoPor', null) == null
+        && soAltera(['creditoUsadoPor', 'atualizadoEm'])
+        && getAfter(caminho('pagamentos', resource.data.creditoUsadoPor)).data.status == 'cancelado'
+        && aulaDoAuxiliar(getAfter(caminho('pagamentos', resource.data.creditoUsadoPor)).data.aulaId)
       );
 
       allow delete: if false;

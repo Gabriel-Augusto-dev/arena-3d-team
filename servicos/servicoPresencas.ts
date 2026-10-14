@@ -3,6 +3,7 @@ import type { Aula, Pagamento, Presenca, Usuario } from "@/tipos";
 import { aulaDaSemana, avaliarPresenca } from "./regras/regrasAula";
 import { aulaJaComecou } from "@/lib/utilitarios/datas";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
+import { chamarApi } from "@/lib/api/cliente";
 
 /**
  * Marcar e desmarcar presença.
@@ -123,11 +124,34 @@ export async function marcarPresenca(aluno: Usuario, aula: Aula): Promise<Presen
   return marcada;
 }
 
+/**
+ * Marca presença numa aula que seria Day Use usando 1 crédito de aula cancelada.
+ * Feito no servidor: a presença já entra paga e o crédito é gasto de uma vez só.
+ */
+export async function usarCreditoNaAula(aula: Aula): Promise<PresencaMarcada> {
+  const { presenca, pagamento } = await chamarApi<{ presenca: Presenca; pagamento: Pagamento }>(
+    "/api/presencas/credito",
+    { acao: "usar", aulaId: aula.id },
+  );
+  return { pagamentoId: pagamento.id, presenca, cobranca: pagamento };
+}
+
 /** Desmarca a presença (antes da aula começar). Cancela a cobrança se ainda não foi paga */
 export async function desmarcarPresenca(presenca: Presenca): Promise<Presenca> {
   const aula = await banco.obter("aulas", presenca.aulaId);
   if (aula && aulaJaComecou(aula.data, aula.horarioInicio)) {
     throw new Error("A aula já começou. Para desmarcar, fale com o professor");
+  }
+  // Pago com crédito: o servidor desmarca e devolve o crédito
+  if (presenca.pagamentoId) {
+    const cobranca = await banco.obter("pagamentos", presenca.pagamentoId);
+    if (cobranca?.forma === "credito" && cobranca.status === "confirmado") {
+      const { presenca: atualizada } = await chamarApi<{ presenca: Presenca }>("/api/presencas/credito", {
+        acao: "devolver",
+        presencaId: presenca.id,
+      });
+      return atualizada;
+    }
   }
   const local: Presenca = { ...presenca, status: "cancelada", atualizadoEm: new Date().toISOString() };
   const operacoes: OperacaoLote[] = [

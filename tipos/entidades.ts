@@ -159,15 +159,26 @@ export type TipoPagamento = "mensalidade" | "day_use";
  * em_analise → aluno avisou que fez o PIX; professor precisa conferir
  * confirmado → professor confirmou o recebimento
  * recusado   → professor não encontrou o PIX da mensalidade
- * cancelado  → presença desmarcada ou aula cancelada
+ * cancelado  → presença desmarcada ou aula cancelada (Day Use não pago)
+ * reembolsado → aula cancelada e o professor devolveu o dinheiro (não conta como recebido)
+ * credito    → aula cancelada e o valor virou 1 aula de crédito para o aluno
+ *              (não conta como recebido; conta quando o crédito for usado)
  *
  * Day Use recusado volta para "pendente" (a dívida continua).
  * Day Use "pendente" depois do dia da aula (meia-noite) = EM ATRASO,
  * e o aluno não consegue marcar presença em outra aula.
  */
-export type StatusPagamento = "pendente" | "em_analise" | "confirmado" | "recusado" | "cancelado";
+export type StatusPagamento =
+  | "pendente"
+  | "em_analise"
+  | "confirmado"
+  | "recusado"
+  | "cancelado"
+  | "reembolsado"
+  | "credito";
 
-export type FormaPagamento = "pix" | "dinheiro" | "outro";
+/** "credito" = Day Use pago com um crédito de aula cancelada (sem dinheiro novo) */
+export type FormaPagamento = "pix" | "dinheiro" | "outro" | "credito";
 
 /** Coleção `pagamentos` — só o professor confirma */
 export interface Pagamento {
@@ -193,6 +204,12 @@ export interface Pagamento {
   motivoRecusa: string;
   confirmadoPor: string | null;
   confirmadoEm: DataHoraISO | null;
+  /** Crédito (status "credito"): usar até este dia */
+  creditoValidade?: DataISO | null;
+  /** Crédito já usado: id do pagamento (Day Use) que consumiu este crédito */
+  creditoUsadoPor?: string | null;
+  /** Day Use pago com crédito: id do pagamento que era o crédito */
+  creditoOrigemId?: string | null;
   criadoEm: DataHoraISO;
   atualizadoEm: DataHoraISO;
 }

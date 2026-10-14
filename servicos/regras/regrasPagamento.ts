@@ -46,7 +46,17 @@ export function cobrancasQueBloqueiam(pagamentos: Pagamento[], hoje: DataISO = h
   };
 }
 
-export type SituacaoCobranca = "pago" | "em_analise" | "em_atraso" | "a_pagar" | "cancelado" | "recusado";
+export type SituacaoCobranca =
+  | "pago"
+  | "em_analise"
+  | "em_atraso"
+  | "a_pagar"
+  | "cancelado"
+  | "recusado"
+  | "reembolsado"
+  | "em_credito"
+  | "credito_usado"
+  | "credito_expirado";
 
 /** Situação de uma cobrança para exibir na tela */
 export function situacaoCobranca(pagamento: Pagamento, hoje: DataISO = hojeISO()): SituacaoCobranca {
@@ -54,7 +64,47 @@ export function situacaoCobranca(pagamento: Pagamento, hoje: DataISO = hojeISO()
   if (pagamento.status === "em_analise") return "em_analise";
   if (pagamento.status === "cancelado") return "cancelado";
   if (pagamento.status === "recusado") return "recusado";
+  if (pagamento.status === "reembolsado") return "reembolsado";
+  if (pagamento.status === "credito") {
+    if (pagamento.creditoUsadoPor) return "credito_usado";
+    return creditoVencido(pagamento, hoje) ? "credito_expirado" : "em_credito";
+  }
   return estaEmAtraso(pagamento, hoje) ? "em_atraso" : "a_pagar";
 }
+
+/* ------------------------------------------------------------------ */
+/* Crédito de aula cancelada                                           */
+/* ------------------------------------------------------------------ */
+
+/** Por quantos dias o crédito de uma aula cancelada vale */
+export const DIAS_VALIDADE_CREDITO = 60;
+
+const creditoVencido = (p: Pagamento, hoje: DataISO) => !!p.creditoValidade && p.creditoValidade < hoje;
+
+/** Créditos que o aluno ainda pode usar (o que vence primeiro vem antes) */
+export function creditosDisponiveis(pagamentos: Pagamento[], hoje: DataISO = hojeISO()): Pagamento[] {
+  return pagamentos
+    .filter((p) => p.status === "credito" && !p.creditoUsadoPor && !creditoVencido(p, hoje))
+    .sort((a, b) => (a.creditoValidade ?? "").localeCompare(b.creditoValidade ?? ""));
+}
+
+/** Day Use pago com crédito (sem dinheiro novo) */
+export const pagoComCredito = (p: Pagamento | undefined | null) =>
+  !!p && p.forma === "credito" && p.status === "confirmado";
+
+/** Day Use que tinha sido pago e foi cancelado junto com a aula (versão antiga do app) */
+const pagoECanceladoComAula = (p: Pagamento) =>
+  p.status === "cancelado" && !!p.confirmadoEm && p.motivoRecusa === "Aula cancelada";
+
+/** Day Use pago de aula cancelada que pode virar reembolso ou crédito */
+export const podeReembolsarOuCreditar = (p: Pagamento) =>
+  p.tipo === "day_use" && (p.status === "confirmado" || pagoECanceladoComAula(p));
+
+/**
+ * Day Use de aula cancelada que o professor ainda precisa resolver:
+ * pago (reembolsar ou virar crédito) ou PIX avisado (conferir antes).
+ */
+export const aguardaDecisaoDaAulaCancelada = (p: Pagamento) =>
+  podeReembolsarOuCreditar(p) || (p.tipo === "day_use" && p.status === "em_analise");
 
 export const somaValores = (pagamentos: Pagamento[]) => pagamentos.reduce((total, p) => total + p.valor, 0);

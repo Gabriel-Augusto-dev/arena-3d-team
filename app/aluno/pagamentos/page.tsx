@@ -7,6 +7,7 @@ import { useColecao } from "@/ganchos/useColecao";
 import { useUsuarioLogado } from "@/contextos/ContextoAutenticacao";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
 import { CartaoMensalidade } from "@/componentes/pagamentos/CartaoMensalidade";
+import { CartaoCreditos } from "@/componentes/pagamentos/CartaoCreditos";
 import { FolhaPagarCobrancas } from "@/componentes/pagamentos/FolhaPagarCobrancas";
 import { ItemPagamento } from "@/componentes/pagamentos/ItemPagamento";
 import { Botao } from "@/componentes/interface/Botao";
@@ -44,7 +45,11 @@ export default function PagamentosAluno() {
   const historico = pagamentosPeriodo.dados
     .filter(
       (p) =>
-        (p.status === "confirmado" || p.status === "recusado" || p.status === "cancelado") &&
+        (p.status === "confirmado" ||
+          p.status === "recusado" ||
+          p.status === "cancelado" ||
+          p.status === "reembolsado" ||
+          p.status === "credito") &&
         (filtro === "todos" || p.tipo === filtro),
     )
     .sort((a, b) => (b.confirmadoEm ?? b.criadoEm).localeCompare(a.confirmadoEm ?? a.criadoEm));
@@ -105,6 +110,8 @@ export default function PagamentosAluno() {
               </ul>
             </section>
           )}
+
+          <CartaoCreditos />
 
           <CartaoMensalidade />
 

@@ -60,7 +60,11 @@ export default function FinanceiroProfessor() {
     .filter(
       (p) =>
         // Cancelado aqui = Day Use já confirmado cuja aula foi desmarcada (aparece, mas não soma)
-        (p.status === "confirmado" || p.status === "recusado" || p.status === "cancelado") &&
+        (p.status === "confirmado" ||
+          p.status === "recusado" ||
+          p.status === "cancelado" ||
+          p.status === "reembolsado" ||
+          p.status === "credito") &&
         (tipo === "todos" || p.tipo === tipo) &&
         (!busca.trim() || contemTexto(p.alunoNome, busca)),
     )

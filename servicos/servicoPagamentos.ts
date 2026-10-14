@@ -1,10 +1,10 @@
 import { banco, type OperacaoLote } from "@/lib/banco";
 import { chamarApi, ErroApi } from "@/lib/api/cliente";
 import type { FormaPagamento, Pagamento, Turma, Usuario } from "@/tipos";
-import { formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
+import { adicionarDias, formatarData, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { calcularNovoCiclo, camposDasMatriculas, matriculasDoAluno } from "./regras/regrasMensalidade";
-import { somaValores } from "./regras/regrasPagamento";
+import { DIAS_VALIDADE_CREDITO, podeReembolsarOuCreditar, somaValores } from "./regras/regrasPagamento";
 import { ehDiaExtra, TURMA_VIRTUAL_DIA_EXTRA } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { operacaoNotificarAluno, operacaoNotificarProfessores } from "./servicoNotificacoes";
@@ -243,5 +243,85 @@ export async function registrarMensalidadeRecebida(
       },
     },
     ...(await operacoesNovoCiclo(aluno, id, turma.id)),
+  ]);
+}
+
+/* ------------------------------------------------------------------ */
+/* Aula cancelada: o que fazer com o Day Use já pago                    */
+/* ------------------------------------------------------------------ */
+
+async function conferirParaDecisao(pagamento: Pagamento) {
+  const atual = await banco.obter("pagamentos", pagamento.id);
+  if (!atual) throw new Error("Pagamento não encontrado");
+  if (atual.tipo !== "day_use" || !atual.aulaId) throw new Error("Só Day Use de aula cancelada");
+  const aula = await banco.obter("aulas", atual.aulaId);
+  if (aula?.status !== "cancelada") throw new Error("A aula deste pagamento não está cancelada");
+  return atual;
+}
+
+/**
+ * Aula cancelada e o professor devolveu o dinheiro ao aluno (por fora do app).
+ * O pagamento fica "reembolsado" e sai do valor recebido.
+ */
+export async function reembolsarDayUse(pagamento: Pagamento) {
+  const atual = await conferirParaDecisao(pagamento);
+  if (!podeReembolsarOuCreditar(atual)) throw new Error("Só dá para reembolsar um pagamento confirmado");
+  await banco.lote([
+    {
+      tipo: "atualizar",
+      colecao: "pagamentos",
+      id: atual.id,
+      dados: { status: "reembolsado", motivoRecusa: "Aula cancelada · valor devolvido" },
+    },
+    operacaoNotificarAluno(atual.alunoId, {
+      tipo: "aviso",
+      titulo: "Reembolso da aula cancelada",
+      mensagem: `O professor devolveu ${formatarMoeda(atual.valor)} da ${await descreverAula(atual)}.`,
+      link: "/aluno/pagamentos",
+    }),
+  ]);
+}
+
+/**
+ * Aula cancelada e o valor vira 1 aula de crédito (vale 60 dias). O pagamento
+ * deixa de contar como recebido agora e passa a contar quando o crédito for usado.
+ */
+export async function converterEmCredito(pagamento: Pagamento) {
+  const atual = await conferirParaDecisao(pagamento);
+  if (!podeReembolsarOuCreditar(atual)) throw new Error("Só dá para virar crédito um pagamento confirmado");
+  const validade = adicionarDias(hojeISO(), DIAS_VALIDADE_CREDITO - 1);
+  await banco.lote([
+    {
+      tipo: "atualizar",
+      colecao: "pagamentos",
+      id: atual.id,
+      dados: { status: "credito", creditoValidade: validade, creditoUsadoPor: null, motivoRecusa: "Aula cancelada" },
+    },
+    operacaoNotificarAluno(atual.alunoId, {
+      tipo: "aviso",
+      titulo: "Você ganhou 1 aula de crédito",
+      mensagem: `A ${await descreverAula(atual)} foi cancelada. Use o crédito em outra aula até ${formatarData(validade)}: é só marcar presença, sem pagar de novo.`,
+      link: "/aluno/pagamentos",
+    }),
+  ]);
+}
+
+/** PIX avisado de aula cancelada que o professor não encontrou: só cancela */
+export async function cancelarPixNaoRecebido(pagamento: Pagamento) {
+  const atual = await conferirParaDecisao(pagamento);
+  if (atual.status !== "em_analise") throw new Error("Este pagamento já foi analisado");
+  await banco.lote([
+    {
+      tipo: "atualizar",
+      colecao: "pagamentos",
+      id: atual.id,
+      dados: { status: "cancelado", motivoRecusa: "Aula cancelada · PIX não encontrado" },
+    },
+    operacaoNotificarAluno(atual.alunoId, {
+      tipo: "aviso",
+      titulo: "Aula cancelada",
+      mensagem: `A ${await descreverAula(atual)} foi cancelada e o professor não encontrou o PIX de ${formatarMoeda(atual.valor)}. Se você pagou, fale com ele.`,
+      link: "/aluno/pagamentos",
+    }),
   ]);
 }
