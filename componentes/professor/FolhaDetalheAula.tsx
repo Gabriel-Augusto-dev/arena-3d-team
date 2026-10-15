@@ -42,7 +42,6 @@ import { ehMensalistaDaTurma } from "@/servicos/regras/regrasMensalidade";
 import { responsavelDaAula } from "@/servicos/regras/regrasEquipe";
 import {
   aguardaDecisaoDaAulaCancelada,
-  DIAS_VALIDADE_CREDITO,
   podeReembolsarOuCreditar,
   situacaoCobranca,
 } from "@/servicos/regras/regrasPagamento";
@@ -674,7 +673,7 @@ function PagamentosDaAulaCancelada({
       <h3 className="font-titulo text-lg font-bold">Day Use pagos</h3>
       <p className="-mt-1 text-sm text-suave">
         {pendentes.length
-          ? `${pendentes.length === 1 ? "1 aluno espera" : `${pendentes.length} alunos esperam`} você decidir: devolver o dinheiro ou virar 1 aula de crédito (vale ${DIAS_VALIDADE_CREDITO} dias).`
+          ? `${pendentes.length === 1 ? "1 aluno espera" : `${pendentes.length} alunos esperam`} você decidir: devolver o dinheiro ou virar 1 aula de crédito.`
           : "Tudo resolvido."}
       </p>
       <ul className="flex flex-col gap-1.5">

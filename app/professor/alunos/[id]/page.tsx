@@ -53,7 +53,7 @@ import {
   situacaoDaValidade,
 } from "@/servicos/regras/regrasMensalidade";
 import { ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
-import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
+import { contaComoRecebido, creditosDisponiveis, situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { alternarAlunoAtivo, definirAssociado, definirUltimoPagamento, reenviarAcesso } from "@/servicos/servicoAlunos";
 import type { Usuario } from "@/tipos";
 import type { ResultadoNovaConta } from "@/lib/autenticacao";
@@ -124,7 +124,9 @@ export default function DetalheAluno() {
   });
   const situacao = calcularSituacaoMensalidade(aluno);
   const idade = calcularIdade(aluno.dataNascimento);
-  const totalPago = meusPagamentos.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0);
+  const totalPago = meusPagamentos.filter(contaComoRecebido).reduce((t, p) => t + p.valor, 0);
+  // Aulas canceladas que viraram crédito e o aluno ainda não usou
+  const creditos = creditosDisponiveis(meusPagamentos).length;
 
   const alternarAtivo = async () => {
     setAlternando(true);
@@ -174,6 +176,9 @@ export default function DetalheAluno() {
                   </Selo>
                   {aluno.plano === "mensalista" && aluno.associado && <Selo tom="verde">Associado</Selo>}
                   {!aluno.ativo && <Selo tom="cinza">Inativo</Selo>}
+                  {creditos > 0 && (
+                    <Selo tom="azul">{creditos === 1 ? "1 aula de crédito" : `${creditos} aulas de crédito`}</Selo>
+                  )}
                 </div>
               </div>
             </div>

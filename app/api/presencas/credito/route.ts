@@ -75,9 +75,10 @@ async function usarCredito(
     );
     if (bloqueia) throw new ErroHttp(409, "Você tem Day Use em aberto de outra aula. Resolva antes de marcar presença");
 
+    // Crédito não vence: usa o mais antigo
     const credito = pagamentos
-      .filter((p) => p.status === "credito" && !p.creditoUsadoPor && (!p.creditoValidade || p.creditoValidade >= hoje))
-      .sort((a, b) => (a.creditoValidade ?? "").localeCompare(b.creditoValidade ?? ""))[0];
+      .filter((p) => p.status === "credito" && !p.creditoUsadoPor)
+      .sort((a, b) => (a.confirmadoEm ?? a.criadoEm).localeCompare(b.confirmadoEm ?? b.criadoEm))[0];
     if (!credito) throw new ErroHttp(409, "Você não tem crédito disponível");
 
     const agora = new Date().toISOString();

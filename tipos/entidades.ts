@@ -162,7 +162,7 @@ export type TipoPagamento = "mensalidade" | "day_use";
  * cancelado  → presença desmarcada ou aula cancelada (Day Use não pago)
  * reembolsado → aula cancelada e o professor devolveu o dinheiro (não conta como recebido)
  * credito    → aula cancelada e o valor virou 1 aula de crédito para o aluno
- *              (não conta como recebido; conta quando o crédito for usado)
+ *              (continua contando como recebido no dia do PIX; o crédito não vence)
  *
  * Day Use recusado volta para "pendente" (a dívida continua).
  * Day Use "pendente" depois do dia da aula (meia-noite) = EM ATRASO,
@@ -204,7 +204,7 @@ export interface Pagamento {
   motivoRecusa: string;
   confirmadoPor: string | null;
   confirmadoEm: DataHoraISO | null;
-  /** Crédito (status "credito"): usar até este dia */
+  /** Não usado: o crédito não vence (campo mantido só por registros antigos) */
   creditoValidade?: DataISO | null;
   /** Crédito já usado: id do pagamento (Day Use) que consumiu este crédito */
   creditoUsadoPor?: string | null;

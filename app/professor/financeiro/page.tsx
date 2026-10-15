@@ -14,7 +14,7 @@ import { Abas, CartaoNumero, EsqueletoLista, EstadoVazio, FichasFiltro, TituloPa
 import { adicionarDias, competencia, formatarCompetencia, formatarDataHora, hojeISO } from "@/lib/utilitarios/datas";
 import { contemTexto, formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { ROTULOS_FORMA_PAGAMENTO } from "@/lib/rotulos";
-import { cobrancasEmAtraso, somaValores } from "@/servicos/regras/regrasPagamento";
+import { cobrancasEmAtraso, contaComoRecebido, somaValores } from "@/servicos/regras/regrasPagamento";
 import { calcularSituacaoMensalidade } from "@/servicos/regras/regrasMensalidade";
 import type { TipoPagamento } from "@/tipos";
 
@@ -52,7 +52,7 @@ export default function FinanceiroProfessor() {
   const doMes = useColecao("pagamentos", [onde("confirmadoEm", ">=", inicioMes), onde("confirmadoEm", "<", fimMes)]);
 
   const recebidoNoMes = useMemo(
-    () => doMes.dados.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0),
+    () => doMes.dados.filter(contaComoRecebido).reduce((t, p) => t + p.valor, 0),
     [doMes.dados],
   );
 

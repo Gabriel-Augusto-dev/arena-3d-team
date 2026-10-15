@@ -15,7 +15,7 @@ import { CampoData } from "@/componentes/interface/Campos";
 import { EsqueletoLista, EstadoVazio, FichasFiltro, TituloPagina, TituloSecao } from "@/componentes/interface/Elementos";
 import { adicionarDias, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
-import { somaValores } from "@/servicos/regras/regrasPagamento";
+import { contaComoRecebido, somaValores } from "@/servicos/regras/regrasPagamento";
 import type { Pagamento, TipoPagamento } from "@/tipos";
 
 type Filtro = "todos" | TipoPagamento;
@@ -53,12 +53,12 @@ export default function PagamentosAluno() {
         (filtro === "todos" || p.tipo === filtro),
     )
     .sort((a, b) => (b.confirmadoEm ?? b.criadoEm).localeCompare(a.confirmadoEm ?? a.criadoEm));
-  const totalPeriodo = historico.filter((p) => p.status === "confirmado").reduce((t, p) => t + p.valor, 0);
+  const totalPeriodo = historico.filter(contaComoRecebido).reduce((t, p) => t + p.valor, 0);
 
   const totalAno = useMemo(
     () =>
       meusPagamentos
-        .filter((p) => p.status === "confirmado" && (p.confirmadoEm ?? p.criadoEm).startsWith(anoAtual))
+        .filter((p) => contaComoRecebido(p) && (p.confirmadoEm ?? p.criadoEm).startsWith(anoAtual))
         .reduce((total, p) => total + p.valor, 0),
     [meusPagamentos, anoAtual],
   );

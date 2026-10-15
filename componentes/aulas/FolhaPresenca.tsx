@@ -9,7 +9,7 @@ import { CarimboEnviado } from "@/componentes/pagamentos/CarimboEnviado";
 import { FolhaPagarCobrancas } from "@/componentes/pagamentos/FolhaPagarCobrancas";
 import { useAvisos } from "@/contextos/ContextoAvisos";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
-import { aulaJaComecou, formatarData, formatarDataExtenso } from "@/lib/utilitarios/datas";
+import { aulaJaComecou, formatarDataExtenso } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { descreverQuadra, nomeDoProfessor, ROTULOS_NIVEL } from "@/servicos/regras/regrasAula";
 import { creditosDisponiveis, situacaoCobranca, somaValores } from "@/servicos/regras/regrasPagamento";
@@ -193,7 +193,7 @@ export function FolhaPresenca({ item, aoFechar }: { item: AulaDoAluno; aoFechar(
                   icone={Ticket}
                   titulo="Usar meu crédito"
                   preco="1 aula"
-                  descricao={`Crédito de aula cancelada, vale até ${formatarData(credito.creditoValidade ?? null)}. A presença já entra paga.`}
+                  descricao="Crédito de aula cancelada. A presença já entra paga, sem pagar de novo."
                   aoEscolher={marcarComCredito}
                   carregando={enviando}
                   destaque

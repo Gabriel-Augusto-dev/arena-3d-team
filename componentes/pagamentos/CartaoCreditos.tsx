@@ -2,7 +2,6 @@
 
 import { Ticket } from "lucide-react";
 import { useDadosAluno } from "@/contextos/ContextoDadosAluno";
-import { formatarData } from "@/lib/utilitarios/datas";
 import { creditosDisponiveis } from "@/servicos/regras/regrasPagamento";
 
 /** Créditos de aula cancelada que o aluno ainda pode usar (some quando não há nenhum) */
@@ -23,7 +22,6 @@ export function CartaoCreditos() {
         </p>
         <p className="text-sm text-white/80">
           De aula cancelada. Na próxima aula que seria paga, é só marcar presença: não precisa pagar de novo.
-          {` Vale até ${formatarData(creditos[0].creditoValidade ?? null)}.`}
         </p>
       </div>
     </div>

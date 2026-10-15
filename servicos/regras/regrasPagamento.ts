@@ -55,8 +55,7 @@ export type SituacaoCobranca =
   | "recusado"
   | "reembolsado"
   | "em_credito"
-  | "credito_usado"
-  | "credito_expirado";
+  | "credito_usado";
 
 /** Situação de uma cobrança para exibir na tela */
 export function situacaoCobranca(pagamento: Pagamento, hoje: DataISO = hojeISO()): SituacaoCobranca {
@@ -65,10 +64,7 @@ export function situacaoCobranca(pagamento: Pagamento, hoje: DataISO = hojeISO()
   if (pagamento.status === "cancelado") return "cancelado";
   if (pagamento.status === "recusado") return "recusado";
   if (pagamento.status === "reembolsado") return "reembolsado";
-  if (pagamento.status === "credito") {
-    if (pagamento.creditoUsadoPor) return "credito_usado";
-    return creditoVencido(pagamento, hoje) ? "credito_expirado" : "em_credito";
-  }
+  if (pagamento.status === "credito") return pagamento.creditoUsadoPor ? "credito_usado" : "em_credito";
   return estaEmAtraso(pagamento, hoje) ? "em_atraso" : "a_pagar";
 }
 
@@ -76,17 +72,21 @@ export function situacaoCobranca(pagamento: Pagamento, hoje: DataISO = hojeISO()
 /* Crédito de aula cancelada                                           */
 /* ------------------------------------------------------------------ */
 
-/** Por quantos dias o crédito de uma aula cancelada vale */
-export const DIAS_VALIDADE_CREDITO = 60;
-
-const creditoVencido = (p: Pagamento, hoje: DataISO) => !!p.creditoValidade && p.creditoValidade < hoje;
-
-/** Créditos que o aluno ainda pode usar (o que vence primeiro vem antes) */
-export function creditosDisponiveis(pagamentos: Pagamento[], hoje: DataISO = hojeISO()): Pagamento[] {
+/** Créditos que o aluno ainda pode usar (não vencem; o mais antigo é usado primeiro) */
+export function creditosDisponiveis(pagamentos: Pagamento[]): Pagamento[] {
   return pagamentos
-    .filter((p) => p.status === "credito" && !p.creditoUsadoPor && !creditoVencido(p, hoje))
-    .sort((a, b) => (a.creditoValidade ?? "").localeCompare(b.creditoValidade ?? ""));
+    .filter((p) => p.status === "credito" && !p.creditoUsadoPor)
+    .sort((a, b) => (a.confirmadoEm ?? a.criadoEm).localeCompare(b.confirmadoEm ?? b.criadoEm));
 }
+
+/**
+ * Dinheiro que de fato entrou (Financeiro, totais e repasse usam a mesma regra):
+ *  - confirmado → conta (menos o pago com crédito: não é dinheiro novo)
+ *  - virou crédito → continua contando no dia em que o PIX entrou
+ *  - reembolsado, cancelado, a pagar, em análise → não conta
+ */
+export const contaComoRecebido = (p: Pagamento) =>
+  (p.status === "confirmado" && p.forma !== "credito") || p.status === "credito";
 
 /** Day Use pago com crédito (sem dinheiro novo) */
 export const pagoComCredito = (p: Pagamento | undefined | null) =>

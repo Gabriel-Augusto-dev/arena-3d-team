@@ -31,16 +31,16 @@ export function ItemPagamento({
     if (pagamento.forma === "credito" && pagamento.status === "confirmado") descricao += " · pago com crédito";
   }
 
-  // Aula cancelada: o que aconteceu com o dinheiro
+  // Aula cancelada / crédito: o que aconteceu com o dinheiro
   const avisoAulaCancelada =
     situacao === "reembolsado"
       ? "Aula cancelada · valor devolvido (não conta como recebido)"
       : situacao === "em_credito"
-        ? `Aula cancelada · virou 1 aula de crédito, vale até ${formatarData(pagamento.creditoValidade ?? null)}`
+        ? "Aula cancelada · virou 1 aula de crédito (o valor continua como recebido)"
         : situacao === "credito_usado"
-          ? "Aula cancelada · crédito já usado em outra aula"
-          : situacao === "credito_expirado"
-            ? `Aula cancelada · o crédito venceu em ${formatarData(pagamento.creditoValidade ?? null)}`
+          ? "Aula cancelada · crédito já usado em outra aula (o valor continua como recebido)"
+          : pagamento.forma === "credito" && pagamento.status === "confirmado"
+            ? "Pago com crédito de aula cancelada · não soma de novo no recebido"
             : null;
 
   return (

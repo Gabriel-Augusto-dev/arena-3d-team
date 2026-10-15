@@ -21,7 +21,7 @@ import {
 import { formatarMoeda, primeiroNome } from "@/lib/utilitarios/formatadores";
 import { ROTULOS_SITUACAO_COBRANCA } from "@/lib/rotulos";
 import { ehDiaExtra, ROTULOS_TIPO_PRESENCA } from "@/servicos/regras/regrasAula";
-import { situacaoCobranca } from "@/servicos/regras/regrasPagamento";
+import { contaComoRecebido, situacaoCobranca } from "@/servicos/regras/regrasPagamento";
 import { aulasDoResponsavel, calcularRepasse, turmasDoResponsavel } from "@/servicos/regras/regrasEquipe";
 import type { Aula, Pagamento, Presenca, Usuario } from "@/tipos";
 
@@ -111,9 +111,20 @@ export function RelatorioAuxiliar({
       .sort((a, b) => (a.data + a.horarioInicio).localeCompare(b.data + b.horarioInicio));
     const idsAulas = new Set(aulas.map((a) => a.id));
     const presencas = presencasPeriodo.dados.filter((p) => p.status === "confirmada" && idsAulas.has(p.aulaId));
-    const dayUse = presencas
-      .map((p) => (p.pagamentoId ? pagamentoPorId.get(p.pagamentoId) : undefined))
-      .filter((p): p is Pagamento => !!p);
+    // Aula cancelada que virou crédito: o dinheiro entrou, então continua contando
+    // para quem era a aula (inclusive aula cancelada com antecedência)
+    const idsTodasAulasDele = new Set(
+      aulasDoResponsavel(aulasPeriodo.dados, turmaPorId, auxiliar.id).map((a) => a.id),
+    );
+    const creditosDasAulasDele = dayUsePeriodo.dados.filter(
+      (p) => p.tipo === "day_use" && p.status === "credito" && !!p.aulaId && idsTodasAulasDele.has(p.aulaId),
+    );
+    const dayUse = [
+      ...presencas
+        .map((p) => (p.pagamentoId ? pagamentoPorId.get(p.pagamentoId) : undefined))
+        .filter((p): p is Pagamento => !!p),
+      ...creditosDasAulasDele,
+    ];
     const mensalidades = confirmadosPeriodo.dados.filter(
       (p) => p.tipo === "mensalidade" && p.status === "confirmado" && !!p.turmaId && idsTurmas.has(p.turmaId),
     );
@@ -124,7 +135,7 @@ export function RelatorioAuxiliar({
       const atual = porAluno.get(p.alunoId) ?? { nome: p.alunoNome, presencas: 0, aPagar: 0, pago: 0 };
       atual.presencas++;
       const pg = p.pagamentoId ? pagamentoPorId.get(p.pagamentoId) : undefined;
-      if (pg?.status === "confirmado") atual.pago += pg.valor;
+      if (pg && contaComoRecebido(pg)) atual.pago += pg.valor;
       else if (pg && (pg.status === "pendente" || pg.status === "em_analise")) atual.aPagar += pg.valor;
       porAluno.set(p.alunoId, atual);
     }
@@ -149,7 +160,7 @@ export function RelatorioAuxiliar({
     return () => clearTimeout(espera);
   }, [percentualTexto, resumo.percentual, auxiliar, campoPercentual, avisos]);
 
-  const pagamentosConfirmados = [...dados.dayUse.filter((p) => p.status === "confirmado"), ...dados.mensalidades].sort(
+  const pagamentosConfirmados = [...dados.dayUse.filter(contaComoRecebido), ...dados.mensalidades].sort(
     (a, b) => (b.confirmadoEm ?? "").localeCompare(a.confirmadoEm ?? ""),
   );
 

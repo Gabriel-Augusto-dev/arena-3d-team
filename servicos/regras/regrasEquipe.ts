@@ -1,5 +1,6 @@
 import { matriculasDoAluno } from "./regrasMensalidade";
 import type { Aula, Pagamento, Presenca, Turma, Usuario } from "@/tipos";
+import { contaComoRecebido } from "./regrasPagamento";
 import { ehDiaExtra } from "./regrasAula";
 
 /**
@@ -74,7 +75,8 @@ export function calcularRepasse(
   mensalidadesConfirmadas: Pagamento[],
   percentual: number,
 ): ResumoRepasse {
-  const confirmados = pagamentosDayUse.filter((p) => p.status === "confirmado");
+  // Mesma regra do Financeiro: o que virou crédito conta; o pago com crédito não conta de novo
+  const confirmados = pagamentosDayUse.filter(contaComoRecebido);
   const abertos = pagamentosDayUse.filter((p) => p.status === "pendente" || p.status === "em_analise");
   const dayUseConfirmado = arredondar(confirmados.reduce((t, p) => t + p.valor, 0));
   const mensalidadeConfirmada = arredondar(mensalidadesConfirmadas.reduce((t, p) => t + p.valor, 0));

@@ -14,7 +14,6 @@ export const ROTULOS_SITUACAO_COBRANCA: Record<SituacaoCobranca, { rotulo: strin
   reembolsado: { rotulo: "Reembolsado", tom: "cinza" },
   em_credito: { rotulo: "Em crédito", tom: "azul" },
   credito_usado: { rotulo: "Crédito usado", tom: "cinza" },
-  credito_expirado: { rotulo: "Crédito vencido", tom: "cinza" },
 };
 
 export const ROTULOS_TIPO_PAGAMENTO: Record<TipoPagamento, string> = {

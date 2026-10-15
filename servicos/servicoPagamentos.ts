@@ -1,10 +1,10 @@
 import { banco, type OperacaoLote } from "@/lib/banco";
 import { chamarApi, ErroApi } from "@/lib/api/cliente";
 import type { FormaPagamento, Pagamento, Turma, Usuario } from "@/tipos";
-import { adicionarDias, formatarData, formatarDataRelativa, hojeISO } from "@/lib/utilitarios/datas";
+import { formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
 import { calcularNovoCiclo, camposDasMatriculas, matriculasDoAluno } from "./regras/regrasMensalidade";
-import { DIAS_VALIDADE_CREDITO, podeReembolsarOuCreditar, somaValores } from "./regras/regrasPagamento";
+import { podeReembolsarOuCreditar, somaValores } from "./regras/regrasPagamento";
 import { ehDiaExtra, TURMA_VIRTUAL_DIA_EXTRA } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
 import { operacaoNotificarAluno, operacaoNotificarProfessores } from "./servicoNotificacoes";
@@ -283,24 +283,24 @@ export async function reembolsarDayUse(pagamento: Pagamento) {
 }
 
 /**
- * Aula cancelada e o valor vira 1 aula de crédito (vale 60 dias). O pagamento
- * deixa de contar como recebido agora e passa a contar quando o crédito for usado.
+ * Aula cancelada e o valor vira 1 aula de crédito (não vence). O pagamento
+ * continua contando como recebido no dia em que o PIX entrou; quando o crédito
+ * for usado, a nova presença entra paga sem somar de novo.
  */
 export async function converterEmCredito(pagamento: Pagamento) {
   const atual = await conferirParaDecisao(pagamento);
   if (!podeReembolsarOuCreditar(atual)) throw new Error("Só dá para virar crédito um pagamento confirmado");
-  const validade = adicionarDias(hojeISO(), DIAS_VALIDADE_CREDITO - 1);
   await banco.lote([
     {
       tipo: "atualizar",
       colecao: "pagamentos",
       id: atual.id,
-      dados: { status: "credito", creditoValidade: validade, creditoUsadoPor: null, motivoRecusa: "Aula cancelada" },
+      dados: { status: "credito", creditoValidade: null, creditoUsadoPor: null, motivoRecusa: "Aula cancelada" },
     },
     operacaoNotificarAluno(atual.alunoId, {
       tipo: "aviso",
       titulo: "Você ganhou 1 aula de crédito",
-      mensagem: `A ${await descreverAula(atual)} foi cancelada. Use o crédito em outra aula até ${formatarData(validade)}: é só marcar presença, sem pagar de novo.`,
+      mensagem: `A ${await descreverAula(atual)} foi cancelada. Use o crédito em outra aula: é só marcar presença, sem pagar de novo.`,
       link: "/aluno/pagamentos",
     }),
   ]);
