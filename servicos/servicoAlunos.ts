@@ -108,16 +108,20 @@ export async function definirAssociado(aluno: Usuario, associado: boolean, comoA
  * (mesma conta de um pagamento confirmado). Com isso a presença já libera.
  * Retorna até quando ficou válida.
  */
-export async function definirUltimoPagamento(alunoId: string, turmaId: string, dataPagamento: string, diasCiclo: number) {
+export async function definirUltimoPagamento(alunoId: string, turmaId: string, dataPagamento: string) {
   if (!dataPagamento) throw new Error("Informe a data do último pagamento");
   if (dataPagamento > hojeISO()) throw new Error("A data do último pagamento não pode ser no futuro");
   const aluno = await banco.obter("usuarios", alunoId);
   if (!aluno) throw new Error("Aluno não encontrado");
   const matriculas = matriculasDoAluno(aluno);
   if (!matriculas.some((m) => m.turmaId === turmaId)) throw new Error("O aluno não é mensalista desta turma");
-  // Mesma regra do ciclo normal, começando no dia em que ele pagou
-  const { cicloFim } = calcularNovoCiclo(null, diasCiclo, dataPagamento);
+  // O dia do pagamento vira o dia fixo de vencimento (ex.: pagou dia 11 → vence todo dia 11)
+  const dia = Number(dataPagamento.slice(8, 10));
+  const { cicloFim } = calcularNovoCiclo(null, dia, dataPagamento);
   const novas = matriculas.map((m) => (m.turmaId === turmaId ? { ...m, validade: cicloFim } : m));
-  await banco.atualizar("usuarios", aluno.id, camposDasMatriculas(novas));
+  await banco.atualizar("usuarios", aluno.id, {
+    ...camposDasMatriculas(novas),
+    diasVencimento: { ...(aluno.diasVencimento ?? {}), [turmaId]: dia },
+  });
   return cicloFim;
 }

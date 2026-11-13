@@ -48,6 +48,8 @@ import {
 } from "@/lib/utilitarios/formatadores";
 import {
   calcularNovoCiclo,
+  diaDeVencimento,
+  diaVencimentoNaTurma,
   calcularSituacaoMensalidade,
   matriculasDoAluno,
   situacaoDaValidade,
@@ -226,13 +228,13 @@ export default function DetalheAluno() {
                     {m.turma.responsavelNome && <LinhaInfo rotulo="Professor" valor={m.turma.responsavelNome} />}
                     <LinhaInfo rotulo="Valor" valor={formatarMoeda(valorMensalidadeDoAluno(aluno, m.turma, configuracoes))} />
                     <LinhaInfo rotulo="Válida até" valor={formatarData(m.validade)} />
-                    {ehAdministrador && (
-                      <UltimoPagamento
-                        alunoId={aluno.id}
-                        turmaId={m.turmaId}
-                        diasCiclo={configuracoes.diasCicloMensalidade}
+                    {m.validade && (
+                      <LinhaInfo
+                        rotulo="Vencimento"
+                        valor={`Todo dia ${diaDeVencimento(m.validade, diaVencimentoNaTurma(aluno, m.turmaId))}`}
                       />
                     )}
+                    {ehAdministrador && <UltimoPagamento alunoId={aluno.id} turmaId={m.turmaId} />}
                   </div>
                 ))
               ) : (
@@ -444,10 +446,10 @@ function InterruptorAssociado({ aluno }: { aluno: Usuario }) {
 }
 
 /**
- * Aluno que já pagava antes do app: o professor informa o dia do último pagamento
- * e o sistema calcula o vencimento (ciclo dos Ajustes). A presença libera na hora.
+ * O professor informa o dia do último pagamento: esse dia vira o dia fixo de
+ * vencimento (todo mês no mesmo dia) e a presença libera na hora.
  */
-function UltimoPagamento({ alunoId, turmaId, diasCiclo }: { alunoId: string; turmaId: string; diasCiclo: number }) {
+function UltimoPagamento({ alunoId, turmaId }: { alunoId: string; turmaId: string }) {
   const avisos = useAvisos();
   const [data, setData] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -456,7 +458,7 @@ function UltimoPagamento({ alunoId, turmaId, diasCiclo }: { alunoId: string; tur
   const salvar = async () => {
     setSalvando(true);
     try {
-      const validade = await definirUltimoPagamento(alunoId, turmaId, data, diasCiclo);
+      const validade = await definirUltimoPagamento(alunoId, turmaId, data);
       avisos.sucesso(`Mensalidade válida até ${formatarData(validade)}`);
       setData("");
     } catch (erro) {
@@ -472,8 +474,8 @@ function UltimoPagamento({ alunoId, turmaId, diasCiclo }: { alunoId: string; tur
       <div className="flex items-center justify-between gap-3">
         <p className="text-[13px] text-suave">
           {data
-            ? `Vai valer até ${formatarData(calcularNovoCiclo(null, diasCiclo, data).cicloFim)}`
-            : `Pagou antes do app? Informe o dia: vale ${diasCiclo} dias a partir dele.`}
+            ? `Vence todo dia ${Number(data.slice(8, 10))} · vai valer até ${formatarData(calcularNovoCiclo(null, Number(data.slice(8, 10)), data).cicloFim)}`
+            : "Informe o dia do pagamento: a mensalidade passa a vencer todo mês nesse dia."}
         </p>
         <Botao variante="secundario" tamanho="pequeno" disabled={!data} carregando={salvando} onClick={salvar}>
           Salvar

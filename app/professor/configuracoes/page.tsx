@@ -129,15 +129,6 @@ function FormularioAjustes({ configuracoes }: { configuracoes: Configuracoes }) 
                 onChange={(e) => alterar("valorMensalidadeAssociado", Number(e.target.value) || 0)}
               />
               <Campo
-                rotulo="Dias de cada ciclo"
-                type="number"
-                min={1}
-                inputMode="numeric"
-                value={dados.diasCicloMensalidade}
-                onChange={(e) => alterar("diasCicloMensalidade", Number(e.target.value))}
-                dica="Acesso liberado após confirmar a mensalidade"
-              />
-              <Campo
                 rotulo="WhatsApp da arena"
                 type="tel"
                 value={formatarTelefone(dados.whatsappContato)}

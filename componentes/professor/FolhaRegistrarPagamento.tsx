@@ -10,7 +10,12 @@ import { Folha } from "@/componentes/interface/Folha";
 import { Botao } from "@/componentes/interface/Botao";
 import { Campo, SeletorOpcoes } from "@/componentes/interface/Campos";
 import { adicionarDias, formatarData, hojeISO } from "@/lib/utilitarios/datas";
-import { calcularNovoCiclo, matriculasDoAluno, validadeNaTurma } from "@/servicos/regras/regrasMensalidade";
+import {
+  calcularNovoCiclo,
+  diaVencimentoNaTurma,
+  matriculasDoAluno,
+  validadeNaTurma,
+} from "@/servicos/regras/regrasMensalidade";
 import { registrarMensalidadeRecebida } from "@/servicos/servicoPagamentos";
 
 /** Professor recebeu a mensalidade direto (dinheiro ou PIX fora do app) */
@@ -32,7 +37,7 @@ export function FolhaRegistrarPagamento({ aluno, aoFechar }: { aluno: Usuario; a
   const [salvando, setSalvando] = useState(false);
 
   if (!turma) return null;
-  const ciclo = calcularNovoCiclo(validadeNaTurma(aluno, turma.id), configuracoes.diasCicloMensalidade);
+  const ciclo = calcularNovoCiclo(validadeNaTurma(aluno, turma.id), diaVencimentoNaTurma(aluno, turma.id));
   const trocarTurma = (id: string) => {
     setTurmaId(id);
     const nova = turmasDoAluno.find((t) => t.id === id);

@@ -37,7 +37,7 @@ export function FolhaPagarMensalidade({ turma: minhaTurma, aoFechar }: { turma: 
       aberta
       aoFechar={aoFechar}
       titulo={enviado ? undefined : "Pagar mensalidade"}
-      descricao={enviado ? undefined : `Turma ${minhaTurma.nome} · ${configuracoes.diasCicloMensalidade} dias de acesso`}
+      descricao={enviado ? undefined : `Turma ${minhaTurma.nome} · 1 mês de acesso`}
       rodape={
         enviado ? (
           <Botao tamanho="grande" larguraTotal onClick={aoFechar}>

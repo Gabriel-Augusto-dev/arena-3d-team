@@ -1,5 +1,5 @@
 import type { DataISO, Pagamento, Usuario } from "@/tipos";
-import { adicionarDias, diferencaEmDias, formatarData, hojeISO } from "@/lib/utilitarios/datas";
+import { adicionarDias, diferencaEmDias, formatarData, hojeISO, maiorData } from "@/lib/utilitarios/datas";
 
 export type StatusMensalidade =
   | "em_dia"
@@ -137,17 +137,68 @@ export function calcularSituacaoMensalidade(
   return situacoes.sort((a, b) => ordem(a) - ordem(b))[0];
 }
 
+/** Dia do mês de uma data "AAAA-MM-DD" */
+const diaDoMes = (data: DataISO) => Number(data.slice(8, 10));
+
+/** Data do vencimento no mês de `ano`/`mes` (1–12). Mês sem esse dia (ex.: 31 em fevereiro) = último dia do mês */
+function vencimentoNoMes(ano: number, mes: number, dia: number): DataISO {
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(Math.min(dia, ultimoDia)).padStart(2, "0")}`;
+}
+
+/** Próximo vencimento depois de `data`, sempre no mesmo dia do mês */
+export function proximoVencimento(data: DataISO, dia: number): DataISO {
+  const ano = Number(data.slice(0, 4));
+  const mes = Number(data.slice(5, 7));
+  const noMes = vencimentoNoMes(ano, mes, dia);
+  if (noMes > data) return noMes;
+  return mes === 12 ? vencimentoNoMes(ano + 1, 1, dia) : vencimentoNoMes(ano, mes + 1, dia);
+}
+
+/** Último vencimento até `data` (inclusive), no mesmo dia do mês */
+function vencimentoAtual(data: DataISO, dia: number): DataISO {
+  const ano = Number(data.slice(0, 4));
+  const mes = Number(data.slice(5, 7));
+  const noMes = vencimentoNoMes(ano, mes, dia);
+  if (noMes <= data) return noMes;
+  return mes === 1 ? vencimentoNoMes(ano - 1, 12, dia) : vencimentoNoMes(ano, mes - 1, dia);
+}
+
+/** Dia de vencimento guardado para a turma (definido pelo professor ou no 1º pagamento) */
+export function diaVencimentoNaTurma(aluno: Pick<Usuario, "diasVencimento">, turmaId: string): number | null {
+  const dia = aluno.diasVencimento?.[turmaId];
+  return typeof dia === "number" && dia >= 1 && dia <= 31 ? dia : null;
+}
+
 /**
- * Novo ciclo após confirmação: se ainda estava em dia, emenda no fim do
- * ciclo atual; se estava atrasado ou nunca pagou, começa hoje.
+ * Dia fixo de vencimento: o guardado; sem ele (alunos antigos), o dia seguinte
+ * à validade atual; sem validade, o dia do pagamento.
+ */
+export function diaDeVencimento(validadeAtual: DataISO | null, diaSalvo: number | null, hoje: DataISO = hojeISO()) {
+  if (diaSalvo) return diaSalvo;
+  return diaDoMes(validadeAtual ? adicionarDias(validadeAtual, 1) : hoje);
+}
+
+/**
+ * Novo ciclo após confirmação. A mensalidade vence sempre no mesmo dia do mês
+ * (ex.: todo dia 11), e cada ciclo vai até a véspera do próximo vencimento.
+ * - Em dia: emenda no fim do ciclo atual.
+ * - Atrasado: não muda o dia nem cobra meses que passaram; vale o ciclo do mês
+ *   atual (venceu 11/11 e pagou 13/11 → 11/11 a 10/12).
+ * - Nunca pagou: começa hoje e o dia de hoje vira o dia de vencimento.
  */
 export function calcularNovoCiclo(
   validadeAtual: DataISO | null,
-  diasCiclo: number,
+  diaSalvo: number | null,
   hoje: DataISO = hojeISO(),
 ): { cicloInicio: DataISO; cicloFim: DataISO } {
-  const cicloInicio = validadeAtual && validadeAtual >= hoje ? adicionarDias(validadeAtual, 1) : hoje;
-  return { cicloInicio, cicloFim: adicionarDias(cicloInicio, diasCiclo - 1) };
+  const dia = diaDeVencimento(validadeAtual, diaSalvo, hoje);
+  const cicloInicio = !validadeAtual
+    ? hoje
+    : validadeAtual >= hoje
+      ? adicionarDias(validadeAtual, 1)
+      : maiorData(vencimentoAtual(hoje, dia), adicionarDias(validadeAtual, 1));
+  return { cicloInicio, cicloFim: adicionarDias(proximoVencimento(cicloInicio, dia), -1) };
 }
 
 export function temMensalidadeEmAnalise(pagamentos: Pagamento[], alunoId: string): boolean {

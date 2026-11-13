@@ -3,7 +3,13 @@ import { chamarApi, ErroApi } from "@/lib/api/cliente";
 import type { FormaPagamento, Pagamento, Turma, Usuario } from "@/tipos";
 import { formatarData, formatarDataRelativa } from "@/lib/utilitarios/datas";
 import { formatarMoeda } from "@/lib/utilitarios/formatadores";
-import { calcularNovoCiclo, camposDasMatriculas, matriculasDoAluno } from "./regras/regrasMensalidade";
+import {
+  calcularNovoCiclo,
+  camposDasMatriculas,
+  diaDeVencimento,
+  diaVencimentoNaTurma,
+  matriculasDoAluno,
+} from "./regras/regrasMensalidade";
 import { podeReembolsarOuCreditar, somaValores } from "./regras/regrasPagamento";
 import { ehDiaExtra, TURMA_VIRTUAL_DIA_EXTRA } from "./regras/regrasAula";
 import { obterConfiguracoes } from "./servicoConfiguracoes";
@@ -109,11 +115,13 @@ export async function informarPagamentoMensalidade(aluno: Usuario, turma: Turma,
 
 /** Gravações que abrem um novo ciclo da mensalidade de uma turma */
 async function operacoesNovoCiclo(aluno: Usuario, pagamentoId: string, turmaId: string | null) {
-  const config = await obterConfiguracoes();
   const idTurma = turmaId ?? aluno.turmaId;
   const matriculas = matriculasDoAluno(aluno);
   const atual = idTurma ? matriculas.find((m) => m.turmaId === idTurma) : undefined;
-  const ciclo = calcularNovoCiclo(atual?.validade ?? null, config.diasCicloMensalidade);
+  // Vence sempre no mesmo dia do mês (o dia fica guardado para os próximos pagamentos)
+  const diaSalvo = idTurma ? diaVencimentoNaTurma(aluno, idTurma) : null;
+  const ciclo = calcularNovoCiclo(atual?.validade ?? null, diaSalvo);
+  const dia = diaDeVencimento(atual?.validade ?? null, diaSalvo);
   // Pagou a mensalidade de uma turma em que ainda não estava: passa a ser mensalista dela
   const novas = atual
     ? matriculas.map((m) => (m.turmaId === idTurma ? { ...m, validade: ciclo.cicloFim } : m))
@@ -124,7 +132,11 @@ async function operacoesNovoCiclo(aluno: Usuario, pagamentoId: string, turmaId: 
       tipo: "atualizar",
       colecao: "usuarios",
       id: aluno.id,
-      dados: { plano: "mensalista", ...camposDasMatriculas(novas) },
+      dados: {
+        plano: "mensalista",
+        ...camposDasMatriculas(novas),
+        ...(idTurma ? { diasVencimento: { ...(aluno.diasVencimento ?? {}), [idTurma]: dia } } : {}),
+      },
     },
     { tipo: "atualizar", colecao: "pagamentos", id: pagamentoId, dados: ciclo },
     operacaoNotificarAluno(aluno.id, {

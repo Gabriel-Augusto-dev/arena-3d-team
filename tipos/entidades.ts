@@ -50,6 +50,8 @@ export interface Usuario {
    */
   turmasIds?: string[];
   validades?: Record<string, DataISO | null>;
+  /** Dia fixo do mês em que vence a mensalidade de cada turma (1–31). Sem o campo = dia seguinte à validade */
+  diasVencimento?: Record<string, number>;
   /** Mensalista associado: paga a mensalidade de associado definida em Ajustes */
   associado?: boolean;
   ativo: boolean;
